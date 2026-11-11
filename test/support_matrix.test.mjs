@@ -129,6 +129,11 @@ test("every claim of a run in a host has a recorded run, and the reverse", () =>
     for (const field of ["host", "defoldVersion", "bundle", "result"]) assert.ok(String(run[field]).length > 3, `host run ${field}`);
     assert.ok(Array.isArray(run.checks) && run.checks.length > 0);
     assert.ok(run.zh && run.zh.bundle && run.zh.result, "a host run is described in Chinese as well");
+    // A run on phones names the systems it ran on.
+    if (run.devices !== undefined) {
+      assert.ok(Array.isArray(run.devices) && run.devices.length > 0, "devices lists the phone systems of a run");
+      for (const system of run.devices) assert.ok(["iOS", "Android"].includes(system), `unknown phone system ${system}`);
+    }
     if (run.channel === "stable") {
       assert.ok(versions.has(run.defoldVersion), `a stable run of Defold ${run.defoldVersion}, which the matrix does not list`);
       const engine = matrix.engines.find((entry) => entry.defoldVersion === run.defoldVersion);
@@ -141,6 +146,14 @@ test("every claim of a run in a host has a recorded run, and the reverse", () =>
   for (const engine of matrix.engines) {
     for (const [platform, value] of Object.entries(engine.validation.devtool)) {
       if (value === "verified") assert.ok(ran(engine.defoldVersion, platform), `${engine.defoldVersion} claims the ${platform} tool without a recorded run`);
+    }
+  }
+  // A device is claimed exactly where a recorded run names an iOS and an Android phone.
+  const onPhones = (version, platform) => matrix.hostRuns.some((run) => run.defoldVersion === version && run.platform === platform
+    && run.channel === "stable" && ["iOS", "Android"].every((system) => (run.devices || []).includes(system)));
+  for (const engine of matrix.engines) {
+    for (const [platform, value] of Object.entries(engine.validation.realDevice)) {
+      assert.equal(value === "verified", onPhones(engine.defoldVersion, platform), `${engine.defoldVersion}: realDevice.${platform} and the recorded runs disagree`);
     }
   }
   for (const [name, contract] of Object.entries(matrix.platformContracts)) {

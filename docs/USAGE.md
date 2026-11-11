@@ -3,7 +3,7 @@
 This guide covers every exporter option, the differences between the three platforms, and the runtime behaviour of saves, audio, input, display, network, and package size. If this is your first export, start with the [quick start](QUICK_START.md).
 
 > [!WARNING]
-> v0.1.0 is experimental. Start-up, rendering, touch, saves, sound, subpackages, and the Lua SDK have run with the real engine in the WeChat DevTools and Douyin DevTools simulators. Everything else described here comes from the code and from simulated-host tests, and nothing has run on a device or in TikTok's `ttmg dev`. Test the entries marked "untested" yourself in particular.
+> v0.1.0 is experimental. Start-up, rendering, touch, saves, subpackages, and the Lua SDK have run with the real engine in three places: the WeChat DevTools and Douyin DevTools simulators, and TikTok through `ttmg dev` on an iPhone and an Android phone. Sound has run on WeChat and Douyin only. Everything else described here comes from the code and from simulated-host tests, and WeChat and Douyin have not run on a device. Test the entries marked "untested" yourself in particular.
 
 ## 1. Requirements
 
@@ -132,6 +132,8 @@ Two things are different on TikTok, both learned from device tests in [godot_for
 - Writing to the file system and calling `getStorageInfoSync` can make the client exit, so saves go to key-value storage and the Lua bridge blocks those calls.
 - The way the engine mixer plays audio crashed the client, so the engine gets no AudioContext by default.
 
+A third comes from this project's own run on an iPhone and an Android phone: TikTok has no `onShareAppMessage`, so the content of the share menu cannot be set ahead of time. `minigame.set_share_content()` returns `false` and the reason there; call `minigame.share()` to share.
+
 ## 6. Lua SDK
 
 ![One SDK call across the Lua bridge: a call command through html5.run, the host API call, the queued result, the per-frame poll, and the Lua callback](images/bridge-en.svg)
@@ -171,7 +173,7 @@ local level = minigame.storage_get("level", "1")
 minigame.show_toast("Saved", { icon = "success" })
 minigame.show_modal({ title = "Quit", content = "Really quit?" }, function(confirmed) ... end)
 
--- Sharing: set what the host menu shares ahead of time
+-- Sharing: set what the host menu shares ahead of time (TikTok has no such hook; use minigame.share() there)
 minigame.set_share_content({ title = "Play with me", query = "from=share" })
 
 -- Lifecycle
@@ -360,7 +362,7 @@ end)
 - Hidden files (names that start with `.`) are not copied. Files whose extension is not on WeChat's upload whitelist get a warning: the developer tool may leave them out of the upload.
 - A subpackage holds files the game reads by path, nothing else. The content of the Defold archive (collections, atlases, scripts) is read whole by the engine at start-up and cannot be split into one.
 
-This path has run in WeChat DevTools and Douyin DevTools with the API test app: loading the subpackage, reading a text file from it, and playing a sound from it. On TikTok it only passes the simulated-host tests; a game cannot touch the file system there, so the files of a subpackage are used through host APIs such as `minigame.inner_audio()`.
+This path has run in WeChat DevTools and Douyin DevTools with the API test app: loading the subpackage, reading a text file from it, and playing a sound from it. On TikTok, loading the subpackage passed on an iPhone and an Android phone; a game cannot touch the file system there, so the files of a subpackage are used through host APIs such as `minigame.inner_audio()`.
 
 **Memory.** The initial WebAssembly heap is the project's `html5.heap_size`, 256 MB by default. WeChat's iOS high-performance mode limits memory to 1 GB or 1.4 GB, and low-end phones have less, so set it to a smaller value that fits what the game really uses.
 
@@ -379,15 +381,15 @@ Exporting into the same folder again is safe.
 
 | Feature | Status |
 |---|---|
-| Sprites, text, GUI | ran in WeChat DevTools and Douyin DevTools |
+| Sprites, text, GUI | ran in WeChat DevTools and Douyin DevTools, and on TikTok phones |
 | Particles, tile maps, physics, 3D | engine features, untested |
-| Touch | ran in WeChat DevTools and Douyin DevTools; multi-touch passes simulated-host tests |
-| `sys.save` / `sys.load` | ran in WeChat DevTools and Douyin DevTools, across restarts; `io.*` passes simulated-host tests |
+| Touch | ran in WeChat DevTools and Douyin DevTools, and on TikTok phones; multi-touch passes simulated-host tests |
+| `sys.save` / `sys.load` | ran in WeChat DevTools and Douyin DevTools, across restarts; on TikTok phones a save went to key-value storage and was read back; `io.*` passes simulated-host tests |
 | `http.request` | passes simulated-host tests |
 | `gui.show_keyboard` | passes simulated-host tests; basic |
 | Engine sound | WeChat and Douyin: ran in their developer tools; TikTok: off by default |
-| The `minigame` module | every unattended test of the API test app passes in WeChat DevTools and Douyin DevTools; login, modal, clipboard, sharing, ads, and payment need a tap and were not run |
-| Your own subpackages (`--subpackage`) | ran in WeChat DevTools and Douyin DevTools: loading, reading a file, playing audio; TikTok passes simulated-host tests |
+| The `minigame` module | every unattended test of the API test app passes in WeChat DevTools and Douyin DevTools; on TikTok phones one failed, `set_share_content`, which the host has no API for. Login, modal, clipboard, sharing, ads, and payment need a tap, and no run of them is recorded |
+| Your own subpackages (`--subpackage`) | ran in WeChat DevTools and Douyin DevTools: loading, reading a file, playing audio; on TikTok phones loading passed, and reading a file is not available there |
 | JavaScript through `html5.run` | not supported |
 | WebAssembly threads, SIMD, exceptions | not supported; blocked at export |
 | Native extensions with JavaScript libraries | untested |
@@ -403,7 +405,7 @@ This is not hypothetical: Defold 1.14.1 rewrote the loader's start-up flow. Up t
 
 | Defold | Loader design | Status |
 |---|---|---|
-| 1.14.1 | session (`GameStartup`) | static check passes; covered by simulated-host tests; ran in WeChat DevTools and Douyin DevTools |
+| 1.14.1 | session (`GameStartup`) | static check passes; covered by simulated-host tests; ran in WeChat DevTools and Douyin DevTools, and through `ttmg dev` on TikTok on an iPhone and an Android phone |
 | 1.14.0 | legacy (`_preloadAndCallMain`) | static check passes; covered by simulated-host tests |
 
 [`support-matrix.json`](../support-matrix.json) records the checked versions and how far each was validated. A version that is not listed can still be exported; the result carries a warning.

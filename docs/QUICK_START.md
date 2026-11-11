@@ -1,6 +1,6 @@
 # Quick start
 
-Four steps take a Defold project to a mini-game project a developer tool can open. One thing first: the real engine has run in the WeChat DevTools and Douyin DevTools simulators, and nowhere else yet. TikTok's `ttmg dev` and every real device are unverified, so step 4 may well turn up something worth reporting there.
+Four steps take a Defold project to a mini-game project a developer tool can open. One thing first: the real engine has run in three places, the WeChat DevTools and Douyin DevTools simulators and TikTok through `ttmg dev` on an iPhone and an Android phone. WeChat and Douyin are unverified on a real device, so step 4 may turn up something worth reporting there.
 
 ## What you need
 
@@ -108,7 +108,7 @@ ttmg init     # with the Client Key you exported with
 ttmg dev
 ```
 
-Run `ttmg setup` and `ttmg login` once before the first use. TikTok needs client version 43.4.0 or later.
+Run `ttmg setup` and `ttmg login` once before the first use. `ttmg dev` compiles the output folder and opens a page with a QR code; scan it with TikTok on a phone and the game runs there. It asks which Client Key to use when it starts, and `ttmg dev --client-key <Client Key>` answers that up front. TikTok needs client version 43.4.0 or later.
 
 > [!IMPORTANT]
 > On TikTok the engine's own sound is off by default, so `sound` components are silent. Play audio with `minigame.inner_audio()` and ship the files with `--assets`. The [usage guide](USAGE.md#8-audio) explains why.

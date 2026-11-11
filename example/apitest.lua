@@ -377,6 +377,8 @@ M.sections = {
         title = "Sharing",
         tests = {
             { id = "set_share_content", label = "share content", auto = true, run = function(done)
+                -- TikTok has no hook for its share menu; "share now" is what works there.
+                if not requires("onShareAppMessage", done) then return end
                 local ok, err = minigame.set_share_content({ title = "Defold Mini Game API test" })
                 done(ok and "pass" or "fail", ok and "the share menu will send this title" or err)
             end },

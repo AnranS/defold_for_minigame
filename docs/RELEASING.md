@@ -54,8 +54,11 @@ version for this release:
 
 Every `verified` developer-tool level needs an entry under `hostRuns` with the
 date, the tool and its version, the Defold version and engine SHA1, what was
-run, and the result, in English and in Chinese. `test/support_matrix.test.mjs`
-fails when a claim has no record or a record has no claim. A platform's
+run, and the result, in English and in Chinese. A run on phones also lists
+their systems under `devices`, and a `realDevice` level is `verified` exactly
+when a recorded run names both `iOS` and `Android`.
+`test/support_matrix.test.mjs` fails when a claim has no record or a record
+has no claim. A platform's
 `devtoolCompile` is `verified` once any run in its tool is recorded, and its
 `supportTier` moves from `experimental` only after `devtoolCompile` and
 `realDevice` are both verified.
@@ -123,6 +126,29 @@ Things to know:
   with the same result adds no line; look at the screen instead.
 - `miniapp-tap` presses and releases within one frame. That is the case the
   adapter holds the release for, so send at least one such tap per release.
+
+### Running through ttmg dev
+
+TikTok has no simulator: `ttmg dev` compiles the export, serves a page with a
+QR code, and the game runs in the TikTok app on the phone that scans it. One
+run is therefore the developer-tool level and a device at once.
+
+```bash
+node bin/defold-minigame.mjs build --project . --bob <bob.jar> --java <java> \
+  --platform tiktok --appid <client key> --assets example/assets \
+  --subpackage extras=example/extras --output <project>
+cd <project> && ttmg dev --client-key <client key>
+```
+
+Tap "Run all" on an iPhone and on an Android phone, and record what the list
+shows. Things to know:
+
+- There is no probe for this run; the result is what the screen shows.
+- The engine mixer is off, so the engine's sound test is skipped, and reading
+  a file from the subpackage is skipped because the file system is off limits.
+- TikTok has no `onShareAppMessage`; the share-content test is skipped.
+- Record the phone models, the system versions and the TikTok version. The run
+  of 2026-11-11 did not.
 
 Without Defold installed, `node scripts/fetch_example_bundle.mjs --example
 sprite/flip --out <folder>` assembles a real HTML5 bundle from one of the

@@ -73,8 +73,8 @@
       "validation": {
         "exportSmoke": "automated",
         "simulatedHost": "automated",
-        "devtoolCompile": "not-run",
-        "realDevice": "not-run"
+        "devtoolCompile": "verified",
+        "realDevice": "verified"
       }
     }
   },
@@ -134,12 +134,12 @@
         "devtool": {
           "wechat": "verified",
           "douyin": "verified",
-          "tiktok": "not-run"
+          "tiktok": "verified"
         },
         "realDevice": {
           "wechat": "not-run",
           "douyin": "not-run",
-          "tiktok": "not-run"
+          "tiktok": "verified"
         }
       }
     }
@@ -191,6 +191,32 @@
       "zh": {
         "bundle": "本仓库的 API 功能测试应用，用 bob.jar 构建",
         "result": "41 项自动测试全部通过，其中包括加载游戏自己的分包、读取分包里的文件、播放分包里的声音；工具发出的点击和滑动能点到按钮，sys.save 记的启动次数在重启后还在；另外 15 项需要人点一下或会离开游戏，没有运行"
+      }
+    },
+    {
+      "date": "2026-11-11",
+      "platform": "tiktok",
+      "host": "TikTok app on an iPhone and on an Android phone, through ttmg dev (ttmg 0.4.5)",
+      "devices": [
+        "iOS",
+        "Android"
+      ],
+      "defoldVersion": "1.14.1",
+      "engineSha1": "ee283d4dad9fa451dd6399d83602e1dc25133681",
+      "channel": "stable",
+      "bundle": "the API test app in this repository, built with bob.jar",
+      "checks": [
+        "start-up",
+        "rendering",
+        "touch",
+        "saves",
+        "Lua SDK",
+        "subpackages"
+      ],
+      "result": "run by hand by the maintainer, without the probe: on both phones the unattended tests ran with one failure, set_share_content, because TikTok has no hook for its share menu (the app now skips that test there); the game's own subpackage loaded, and sys.save wrote to key-value storage and read back. The engine mixer is off on TikTok by default, so engine sound was not part of the run. Phone models, system versions and the TikTok version were not recorded",
+      "zh": {
+        "bundle": "本仓库的 API 功能测试应用，用 bob.jar 构建",
+        "result": "维护者手动运行，没有用探针：两台手机上自动测试只有一项失败，是 set_share_content，原因是 TikTok 没有设置分享菜单内容的接口（测试应用现在会在那里跳过这一项）；游戏自己的分包加载成功，sys.save 写入键值存储后能读回。TikTok 上引擎混音器默认关闭，所以这次没有覆盖引擎声音。机型、系统版本和 TikTok 版本没有记录"
       }
     },
     {

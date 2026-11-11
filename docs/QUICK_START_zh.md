@@ -1,6 +1,6 @@
 # 快速开始
 
-从一个 Defold 工程到开发者工具里能打开的小游戏工程，一共四步。先说明一点：真实引擎目前在微信开发者工具和抖音开发者工具的模拟器里跑过。TikTok 的 `ttmg dev` 和所有真机都还没有验证，在那里第四步很可能遇到需要反馈的问题。
+从一个 Defold 工程到开发者工具里能打开的小游戏工程，一共四步。先说明一点：真实引擎目前跑过三处，微信开发者工具和抖音开发者工具的模拟器，以及 TikTok 通过 `ttmg dev` 在 iPhone 和 Android 手机上。微信和抖音的真机还没有验证，在那里第四步可能遇到需要反馈的问题。
 
 ## 准备
 
@@ -108,7 +108,7 @@ ttmg init     # 用导出时填的同一个 Client Key
 ttmg dev
 ```
 
-第一次使用 `ttmg` 需要先 `ttmg setup` 和 `ttmg login`。TikTok 需要 43.4.0 或更高版本的客户端。
+第一次使用 `ttmg` 需要先 `ttmg setup` 和 `ttmg login`。`ttmg dev` 会编译输出目录并打开一个二维码页面，用手机上的 TikTok 扫码后游戏就在手机上运行；它启动时会让你选 Client Key，也可以用 `ttmg dev --client-key <Client Key>` 直接指定。TikTok 需要 43.4.0 或更高版本的客户端。
 
 > [!IMPORTANT]
 > TikTok 上引擎自带的声音默认是关的，`sound` 组件不会出声。要播放声音，请用 `minigame.inner_audio()`，并用 `--assets` 把音频文件带进包里。原因见[使用指南](USAGE_zh.md#8-音频)。

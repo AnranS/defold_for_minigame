@@ -98,7 +98,8 @@ for (const platform of ["wechat", "douyin", "tiktok"]) {
       "a failing callback is logged in the host console, where a release build can show it");
     assert.ok(!logs.some((line) => /callback failed/.test(line)), "and not printed a second time");
     assert.equal(host.crashed, null);
-    assert.equal({ ...host.state.shareHandler() }.title, "Play with me");
+    if (platform === "tiktok") assert.equal(host.state.shareHandler, null, "TikTok has no share menu hook to register with");
+    else assert.equal({ ...host.state.shareHandler() }.title, "Play with me");
     assert.equal(host.state.clipboard, "copied text");
     assert.equal(bridge.pending, 0, "the queue is drained");
   });
@@ -126,6 +127,8 @@ for (const platform of ["wechat", "douyin", "tiktok"]) {
     });
     assertAllPassed(results, 100);
     assert.ok(logs.some((line) => /^apitest pass=\d+ skip=\d+ info=\d+ fail=0$/.test(line)), logs.filter((line) => line.startsWith("apitest")).join("; "));
+    // An API the host lacks is a skip, never a failure: on phones, TikTok has no share menu hook.
+    assert.equal(logs.includes("skip set_share_content the host has no onShareAppMessage"), platform === "tiktok", logs.join("\n"));
     // This bridge was not told about any subpackage of the game, so the app does not ask for one.
     assert.ok(logs.includes("skip subpackage_load exported without --subpackage extras=example/extras"), logs.join("\n"));
     assert.equal(host.crashed, null, "no test touches an API that ends the client");

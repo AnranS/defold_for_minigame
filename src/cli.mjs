@@ -157,7 +157,11 @@ function printExportResult(result, out) {
     out(`  1. Open ${result.outputDir} in ${platform.devtool}`);
     out("  2. Preview on a phone before you submit");
   }
-  if (platform.validation.devtoolCompile === "verified") {
+  const { devtoolCompile, realDevice } = platform.validation;
+  if (devtoolCompile === "verified" && realDevice === "verified") {
+    out(`  Exports of this tool have run with ${platform.devtool} and on phones, iOS and Android.`);
+    out("  That was a test app: try your own game on a device before you submit.");
+  } else if (devtoolCompile === "verified") {
     out(`  Exports of this tool have run in the simulator of ${platform.devtool}, and on no phone yet;`);
     out("  a real device is the acceptance gate.");
   } else {

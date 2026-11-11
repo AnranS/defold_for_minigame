@@ -122,6 +122,16 @@ test("objects are driven through handles: create, listen, invoke, read, release"
   assert.equal(bridge.subscriptionCount, 0);
 });
 
+test("TikTok has no hook for its share menu: setting the content is refused with the reason", (t) => {
+  // Found on phones: TTMinis.game has shareAppMessage and no onShareAppMessage.
+  const { send, host } = setup(t, "tiktok");
+  const reply = send({ op: "share", content: { title: "Play with me" } });
+  assert.equal(reply.ok, false);
+  assert.match(reply.error, /TTMinis\.game\.onShareAppMessage is not supported by this host/);
+  assert.deepEqual(send({ op: "has", apis: ["onShareAppMessage", "shareAppMessage"] }).data, { onShareAppMessage: false, shareAppMessage: true });
+  assert.equal(host.crashed, null);
+});
+
 test("share content is set ahead of time and can be replaced", (t) => {
   const { send, host } = setup(t);
   assert.deepEqual(send({ op: "share", content: { title: "Play with me", query: "from=share" } }), { ok: true });

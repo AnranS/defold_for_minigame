@@ -17,6 +17,14 @@ function run(argv) {
   return { code, out: out.join("\n"), err: err.join("\n") };
 }
 
+/** What the summary says about validation follows the support matrix, platform by platform. */
+function validationNote(platform) {
+  const { devtoolCompile, realDevice } = loadSupportMatrix().platformContracts[platform].validation;
+  if (devtoolCompile === "verified" && realDevice === "verified") return /have run with .* and on phones, iOS and Android/;
+  if (devtoolCompile === "verified") return /have run in the simulator of .*, and on no phone yet/;
+  return /simulated host only/;
+}
+
 test("parses flags, values, inline values, and repeatable options", () => {
   const { positional, options } = parseArguments([
     "export", "--bundle", "b", "--platform=wechat", "--engine-arg", "--a", "--engine-arg=--b", "--no-brotli",
@@ -53,9 +61,7 @@ test("export writes a project and prints the sizes and next steps", (t) => {
   assert.match(result.out, /main package\s+\d/);
   assert.match(result.out, /html5\.run\s+bridged to the minigame Lua module/);
   assert.match(result.out, /Open .* in WeChat DevTools/);
-  // What is said about validation follows the support matrix, platform by platform.
-  const verified = loadSupportMatrix().platformContracts.wechat.validation.devtoolCompile === "verified";
-  assert.match(result.out, verified ? /have run in the simulator of WeChat DevTools, and on no phone yet/ : /simulated host only/);
+  assert.match(result.out, validationNote("wechat"));
   assert.ok(existsSync(join(workspace.outputDir("wechat"), "game.json")));
 });
 
@@ -94,7 +100,7 @@ test("TikTok next steps name ttmg, and --json prints machine-readable output", (
   const text = run(["export", "--bundle", workspace.bundleDir, "--platform", "tiktok", "--appid", "client-key",
     "--output", workspace.outputDir("tiktok"), "--brotli-quality", "4"]);
   assert.match(text.out, /ttmg init/);
-  assert.match(text.out, /simulated host only/);
+  assert.match(text.out, validationNote("tiktok"));
   const json = run(["export", "--bundle", workspace.bundleDir, "--platform", "douyin", "--appid", "tt1",
     "--output", workspace.outputDir("douyin"), "--brotli-quality", "4", "--json"]);
   const parsed = JSON.parse(json.out);

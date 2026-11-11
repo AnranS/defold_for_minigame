@@ -435,6 +435,7 @@ export function createHost(options) {
     getMenuButtonBoundingClientRect() { return { top: 48, bottom: 80, left: 281, right: 368, width: 87, height: 32 }; },
     onShareAppMessage(handler) { record("onShareAppMessage", []); state.shareHandler = handler; },
     showShareMenu: asyncApi("showShareMenu", () => ({})),
+    shareAppMessage: asyncApi("shareAppMessage", () => ({})),
     createRewardedVideoAd(opts) {
       record("createRewardedVideoAd", [opts]);
       const handlers = { close: [], error: [], load: [] };
@@ -462,6 +463,9 @@ export function createHost(options) {
     if (platform === "douyin") api.getAudioContext = () => { record("getAudioContext", []); return makeAudioContext(); };
     else api.createWebAudioContext = () => { record("createWebAudioContext", []); return makeAudioContext(); };
   }
+  // TikTok opens its share sheet with shareAppMessage and has no hook for the
+  // share menu. Seen on an iPhone and an Android phone, 2026-11-11.
+  if (platform === "tiktok") delete api.onShareAppMessage;
   if (typeof options.extendApi === "function") options.extendApi(api, { state, realm, defer });
 
   // ── WebAssembly ─────────────────────────────────────────────────

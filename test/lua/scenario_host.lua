@@ -93,8 +93,14 @@ return function(minigame)
     check_equal("off() stops delivery", shows, 1)
     check_equal("other subscriptions keep working", hides, 2)
 
-    -- Sharing
-    check("set_share_content", minigame.set_share_content({ title = "Play with me", query = "from=lua" }))
+    -- Sharing. TikTok has no hook for its share menu; the module says so instead of raising.
+    local share_set, share_err = minigame.set_share_content({ title = "Play with me", query = "from=lua" })
+    if expected_platform == "tiktok" then
+        check("set_share_content is refused on TikTok, with the reason",
+            share_set == false and tostring(share_err):find("onShareAppMessage", 1, true) ~= nil, share_err)
+    else
+        check("set_share_content", share_set, share_err)
+    end
 
     -- Rewarded video
     local ad, ad_err = minigame.create_rewarded_video_ad("adunit-xyz")
