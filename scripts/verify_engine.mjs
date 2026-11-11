@@ -2,7 +2,7 @@
 /**
  * Static verification of a Defold release for the support matrix.
  *
- *   node scripts/verify_engine.mjs --version 1.14.0 [--sha1 <engine sha1>] [--keep <dir>]
+ *   node scripts/verify_engine.mjs --version 1.14.0 [--sha1 <engine sha1>] [--channel stable|beta|alpha] [--keep <dir>]
  *
  * Downloads the stock single-threaded web engine (dmengine_release.js and
  * dmengine_release.wasm) from d.defold.com and dmloader.js from the Defold
@@ -50,14 +50,21 @@ async function download(url, { binary = false, optional = false } = {}) {
 async function main() {
   const version = argument("--version");
   if (!version) {
-    console.error("usage: node scripts/verify_engine.mjs --version <defold version> [--sha1 <sha1>] [--keep <dir>]");
+    console.error("usage: node scripts/verify_engine.mjs --version <defold version> [--sha1 <sha1>] [--channel stable|beta|alpha] [--keep <dir>]");
+    return 2;
+  }
+  // Releases are published per channel. A pre-release build is only found
+  // under its own channel, and its loader only under its commit, not a tag.
+  const channel = argument("--channel") || "stable";
+  if (!["stable", "beta", "alpha"].includes(channel)) {
+    console.error(`unknown channel '${channel}'; use stable, beta, or alpha`);
     return 2;
   }
   let sha1 = argument("--sha1");
   if (!sha1) {
-    const info = JSON.parse(await download("https://d.defold.com/stable/info.json"));
+    const info = JSON.parse(await download(`https://d.defold.com/${channel}/info.json`));
     if (info.version !== version) {
-      console.error(`the current stable release is ${info.version}; pass --sha1 for ${version}`);
+      console.error(`the current ${channel} release is ${info.version}; pass --sha1 for ${version}`);
       return 2;
     }
     sha1 = info.sha1;
@@ -67,16 +74,19 @@ async function main() {
   const work = keep ? resolve(keep) : mkdtempSync(join(tmpdir(), "dmg-verify-"));
   mkdirSync(work, { recursive: true });
   try {
-    const base = `https://d.defold.com/archive/stable/${sha1}/engine/wasm-web`;
-    console.log(`Defold ${version} (${sha1})`);
+    const base = `https://d.defold.com/archive/${channel}/${sha1}/engine/wasm-web`;
+    console.log(`Defold ${version} (${sha1})${channel === "stable" ? "" : `, ${channel} channel`}`);
     const glue = await download(`${base}/dmengine_release.js`);
     const wasm = await download(`${base}/dmengine_release.wasm`, { binary: true });
     let loaderTemplate = null;
-    for (const path of LOADER_PATHS) {
-      loaderTemplate = await download(`https://raw.githubusercontent.com/defold/defold/${version}/${path}`, { optional: true });
+    for (const ref of [version, sha1]) {
+      for (const path of LOADER_PATHS) {
+        loaderTemplate = await download(`https://raw.githubusercontent.com/defold/defold/${ref}/${path}`, { optional: true });
+        if (loaderTemplate) break;
+      }
       if (loaderTemplate) break;
     }
-    if (!loaderTemplate) throw new Error(`dmloader.js was not found in the Defold source tree at tag ${version}`);
+    if (!loaderTemplate) throw new Error(`dmloader.js was not found in the Defold source tree at tag ${version} or commit ${sha1}`);
     if (keep) {
       writeFileSync(join(work, "dmengine_release.js"), glue);
       writeFileSync(join(work, "dmengine_release.wasm"), wasm);
@@ -125,7 +135,8 @@ async function main() {
       },
       validation: {
         staticContract: "verified", wasmFeatureScan: "verified",
-        simulatedHost: "not-run", devtool: "not-run", realDevice: "not-run",
+        devtool: Object.fromEntries(PLATFORM_NAMES.map((name) => [name, "not-run"])),
+        realDevice: Object.fromEntries(PLATFORM_NAMES.map((name) => [name, "not-run"])),
       },
     }, null, 2));
     return 0;

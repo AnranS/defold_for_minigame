@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 
 import { readLuaApi } from "../../scripts/lib/lua_api.mjs";
 import { buildSite, loadSite, relativeHref, renderSite, repositoryUrl, resolveDocumentLink } from "../build.mjs";
+import { home } from "../content/home.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const matrix = JSON.parse(readFileSync(join(REPO_ROOT, "support-matrix.json"), "utf8"));
@@ -183,29 +184,71 @@ test("the home pages show the values in support-matrix.json", () => {
 });
 
 test("the validation table says only what the matrix records", () => {
-  const rows = (html) => [...section(html, "validation").matchAll(/<tr><td>[\s\S]*?<\/tr>/g)].map((match) => match[0]);
+  const rows = (html) => [...section(html, "validation").matchAll(/<tr><td><strong>[\s\S]*?<\/tr>/g)].map((match) => match[0]);
   const state = (row) => /class="pill (ok|warn|todo)"/.exec(row)[1];
+  const expected = (site) => {
+    const platforms = Object.values(site.matrix.platformContracts);
+    const level = (field) => {
+      const done = platforms.filter((platform) => platform.validation[field] === "verified").length;
+      return done === platforms.length ? "ok" : done > 0 ? "warn" : "todo";
+    };
+    return ["ok", "ok", "ok", "ok", level("devtoolCompile"), level("realDevice")];
+  };
 
-  // As released: nothing beyond the simulated hosts has been run.
+  // As released: the page shows what support-matrix.json records, no more.
   for (const route of ["", "en/"]) {
-    const states = rows(page(route).html).map(state);
-    assert.deepEqual(states, ["ok", "ok", "ok", "ok", "todo", "todo", "todo"], route);
+    assert.deepEqual(rows(page(route).html).map(state), expected(loadSite()), route);
   }
 
   // Recording evidence in the matrix is the only thing that changes the page.
   const site = loadSite();
   site.matrix = structuredClone(site.matrix);
-  site.matrix.platformContracts.wechat.validation.devtoolCompile = "verified";
-  let states = rows(renderSite(site).find((entry) => entry.route === "en/").html).map(state);
-  assert.deepEqual(states, ["ok", "ok", "ok", "ok", "todo", "warn", "todo"]);
-
+  for (const platform of Object.values(site.matrix.platformContracts)) {
+    platform.validation.devtoolCompile = "not-run";
+    platform.validation.realDevice = "not-run";
+  }
+  const render = () => rows(renderSite(site).find((entry) => entry.route === "en/").html).map(state);
+  assert.deepEqual(render(), ["ok", "ok", "ok", "ok", "todo", "todo"]);
+  site.matrix.platformContracts.douyin.validation.devtoolCompile = "verified";
+  assert.deepEqual(render(), ["ok", "ok", "ok", "ok", "warn", "todo"]);
   for (const platform of Object.values(site.matrix.platformContracts)) {
     platform.validation.devtoolCompile = "verified";
     platform.validation.realDevice = "verified";
   }
-  for (const engine of site.matrix.engines) engine.validation.simulatedHost = "verified";
-  states = rows(renderSite(site).find((entry) => entry.route === "en/").html).map(state);
-  assert.deepEqual(states, ["ok", "ok", "ok", "ok", "ok", "ok", "ok"]);
+  assert.deepEqual(render(), ["ok", "ok", "ok", "ok", "ok", "ok"]);
+});
+
+test("the home pages list the recorded host runs and show the real screenshots", () => {
+  for (const [route, lang] of [["", "zh"], ["en/", "en"]]) {
+    const { html } = page(route);
+    const validation = section(html, "validation");
+    for (const run of matrix.hostRuns) {
+      assert.ok(validation.includes(run.date), `${route}: run of ${run.date}`);
+      assert.ok(validation.includes(`<code>${run.defoldVersion}</code>`), `${route}: Defold ${run.defoldVersion}`);
+      const words = lang === "zh" ? run.zh : run;
+      assert.ok(validation.includes(words.result.replace(/&/g, "&amp;")), `${route}: the run's result in ${lang}`);
+      if (run.channel !== "stable") assert.ok(validation.includes(`<small>${run.channel}</small>`), `${route}: a pre-release is marked`);
+    }
+    // Every screenshot the copy lists is shown, with its caption, and is a file in the site.
+    const shots = section(html, "screenshots");
+    assert.ok(home[lang].shots.length >= 6, `${route}: a gallery, not a pair`);
+    for (const shot of home[lang].shots) {
+      const figure = new RegExp(`<figure><img src="[./]*screenshots/${shot.file.replace(".", "\\.")}" alt="[^"]+" width="260" height="\\d+" loading="lazy" /><figcaption>([^<]+)</figcaption></figure>`).exec(shots);
+      assert.ok(figure, `${route}: ${shot.file}`);
+      assert.equal(figure[1], shot.caption.replace(/&/g, "&amp;"), `${route}: caption of ${shot.file}`);
+      assert.ok(existsSync(join(outDir, "screenshots", shot.file)), `${shot.file} is in the built site`);
+    }
+    assert.deepEqual(home.zh.shots.map((shot) => shot.file), home.en.shots.map((shot) => shot.file), "both languages show the same pictures");
+    // The versions table says where a level holds when it holds only in part.
+    const versions = section(html, "versions");
+    for (const engine of matrix.engines) {
+      const verified = Object.keys(engine.validation.devtool).filter((name) => engine.validation.devtool[name] === "verified");
+      const row = versions.slice(versions.indexOf(`<code>${engine.defoldVersion}</code>`)).split("</tr>")[0];
+      const pills = [...row.matchAll(/class="pill (ok|warn|todo)"/g)].map((match) => match[1]);
+      assert.equal(pills[1], verified.length === 3 ? "ok" : verified.length > 0 ? "warn" : "todo", `${route}: developer tool for ${engine.defoldVersion}`);
+    }
+  }
+  assert.ok(existsSync(join(outDir, "screenshots", "apitest-wechat-devtools-1.png")));
 });
 
 test("a matrix value the copy has no words for stops the build", () => {
@@ -311,7 +354,8 @@ test("every image says what it shows, or is marked as decoration", () => {
       assert.ok(alt, `${entry.route}: ${image} has no alt attribute`);
       // Logos sit next to the platform's name, so they are decoration.
       if (image.includes("assets/logos/")) assert.equal(alt[1], "", `${entry.route}: a logo repeats the name next to it`);
-      else assert.ok(alt[1].length > 20, `${entry.route}: ${image.slice(0, 70)} needs a description`);
+      // A sentence in Chinese has far fewer characters than the same one in English.
+      else assert.ok(alt[1].length > 15, `${entry.route}: ${image.slice(0, 70)} needs a description`);
     }
   }
 });

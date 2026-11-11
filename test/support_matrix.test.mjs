@@ -102,12 +102,52 @@ test("validation levels use the agreed words, and a tier is not ahead of its evi
   for (const engine of matrix.engines) {
     assert.deepEqual(
       Object.keys(engine.validation).sort(),
-      ["devtool", "realDevice", "simulatedHost", "staticContract", "wasmFeatureScan"],
+      ["devtool", "realDevice", "staticContract", "wasmFeatureScan"],
       engine.defoldVersion,
     );
-    for (const [level, value] of Object.entries(engine.validation)) {
-      assert.ok(["verified", "not-run"].includes(value), `${engine.defoldVersion}.${level} = ${value}`);
+    for (const level of ["staticContract", "wasmFeatureScan"]) {
+      assert.ok(["verified", "not-run"].includes(engine.validation[level]), `${engine.defoldVersion}.${level}`);
     }
+    // A developer tool and a device are a platform's: each level is kept per platform.
+    for (const level of ["devtool", "realDevice"]) {
+      assert.deepEqual(Object.keys(engine.validation[level]).sort(), [...PLATFORM_NAMES].sort(), `${engine.defoldVersion}.${level}`);
+      for (const [name, value] of Object.entries(engine.validation[level])) {
+        assert.ok(["verified", "not-run"].includes(value), `${engine.defoldVersion}.${level}.${name} = ${value}`);
+      }
+    }
+  }
+});
+
+test("every claim of a run in a host has a recorded run, and the reverse", () => {
+  assert.ok(Array.isArray(matrix.hostRuns));
+  const versions = new Set(matrix.engines.map((engine) => engine.defoldVersion));
+  for (const run of matrix.hostRuns) {
+    assert.match(run.date, /^\d{4}-\d{2}-\d{2}$/);
+    assert.ok(PLATFORM_NAMES.includes(run.platform), `host run on an unknown platform ${run.platform}`);
+    assert.match(run.engineSha1, /^[0-9a-f]{40}$/);
+    assert.ok(["stable", "beta", "alpha"].includes(run.channel));
+    for (const field of ["host", "defoldVersion", "bundle", "result"]) assert.ok(String(run[field]).length > 3, `host run ${field}`);
+    assert.ok(Array.isArray(run.checks) && run.checks.length > 0);
+    assert.ok(run.zh && run.zh.bundle && run.zh.result, "a host run is described in Chinese as well");
+    if (run.channel === "stable") {
+      assert.ok(versions.has(run.defoldVersion), `a stable run of Defold ${run.defoldVersion}, which the matrix does not list`);
+      const engine = matrix.engines.find((entry) => entry.defoldVersion === run.defoldVersion);
+      assert.equal(engine.engineSha1, run.engineSha1);
+      assert.equal(engine.validation.devtool[run.platform], "verified", `${run.defoldVersion} ran in the ${run.platform} tool`);
+    }
+  }
+  // Nothing is "verified" on the strength of a claim alone.
+  const ran = (version, platform) => matrix.hostRuns.some((run) => run.defoldVersion === version && run.platform === platform && run.channel === "stable");
+  for (const engine of matrix.engines) {
+    for (const [platform, value] of Object.entries(engine.validation.devtool)) {
+      if (value === "verified") assert.ok(ran(engine.defoldVersion, platform), `${engine.defoldVersion} claims the ${platform} tool without a recorded run`);
+    }
+  }
+  for (const [name, contract] of Object.entries(matrix.platformContracts)) {
+    const anywhere = matrix.hostRuns.some((run) => run.platform === name);
+    assert.equal(contract.validation.devtoolCompile === "verified", anywhere, `${name}: devtoolCompile and the recorded runs disagree`);
+    const onDevice = matrix.engines.some((engine) => engine.validation.realDevice[name] === "verified");
+    assert.equal(contract.validation.realDevice === "verified", onDevice, `${name}: realDevice and the engines disagree`);
   }
 });
 
@@ -142,18 +182,37 @@ test("every engine in the matrix has its real loader vendored for the host tests
 
 test("the READMEs state what the matrix states", () => {
   const functions = readLuaApi().count;
+  const SHORT = {
+    "README.md": { wechat: "WeChat", douyin: "Douyin", tiktok: "TikTok" },
+    "README_zh.md": { wechat: "微信", douyin: "抖音", tiktok: "TikTok" },
+  };
+  /** A level kept per platform is a tick, an open box, or a half mark that names where it holds. */
+  const expectCell = (cell, level, names, what) => {
+    const verified = Object.keys(level).filter((name) => level[name] === "verified");
+    if (verified.length === Object.keys(level).length) {
+      assert.ok(cell.startsWith("✅"), `${what}: expected a tick, found "${cell}"`);
+    } else if (verified.length === 0) {
+      assert.equal(cell, "⬜", what);
+    } else {
+      assert.ok(cell.startsWith("🟡"), `${what}: expected a half mark, found "${cell}"`);
+      for (const name of Object.keys(level)) {
+        assert.equal(cell.includes(names[name]), verified.includes(name), `${what}: ${names[name]} in "${cell}"`);
+      }
+    }
+  };
   for (const file of READMES) {
     const text = read(file);
     const lines = text.split("\n");
     for (const engine of matrix.engines) {
       const row = lines.find((line) => line.startsWith("|") && line.includes(`\`${engine.defoldVersion}\``));
       assert.ok(row, `${file}: no table row for Defold ${engine.defoldVersion}`);
-      assert.ok(row.includes(`\`${engine.engineSha1.slice(0, 12)}\``), `${file}: engine sha1 of ${engine.defoldVersion}`);
-      // One mark for the static check, three open boxes for the levels that have not been run.
-      const done = ["staticContract", "wasmFeatureScan"].every((level) => engine.validation[level] === "verified");
-      const open = ["simulatedHost", "devtool", "realDevice"].filter((level) => engine.validation[level] !== "verified").length;
-      assert.equal((row.match(/✅/g) || []).length, (done ? 1 : 0) + (3 - open), `${file}: ticks for ${engine.defoldVersion}`);
-      assert.equal((row.match(/⬜/g) || []).length, (done ? 0 : 1) + open, `${file}: open boxes for ${engine.defoldVersion}`);
+      const cells = row.split("|").map((cell) => cell.trim());
+      assert.equal(cells.length, 8, `${file}: Defold, SHA1, loader, static check, developer tool, device`);
+      assert.equal(cells[2], `\`${engine.engineSha1.slice(0, 12)}\``, `${file}: engine sha1 of ${engine.defoldVersion}`);
+      const checked = ["staticContract", "wasmFeatureScan"].every((level) => engine.validation[level] === "verified");
+      assert.equal(cells[4], checked ? "✅" : "⬜", `${file}: static check of ${engine.defoldVersion}`);
+      expectCell(cells[5], engine.validation.devtool, SHORT[file], `${file}: developer tool for ${engine.defoldVersion}`);
+      expectCell(cells[6], engine.validation.realDevice, SHORT[file], `${file}: device for ${engine.defoldVersion}`);
     }
     for (const contract of Object.values(matrix.platformContracts)) {
       const row = lines.find((line) => line.startsWith("|") && line.includes(`| \`${contract.apiNamespace}\` |`));
@@ -162,6 +221,9 @@ test("the READMEs state what the matrix states", () => {
       assert.ok(row.includes(`${contract.packageLimitsBytes.total / 1048576} MB`), `${file}: total limit of ${contract.apiNamespace}`);
       if (contract.minimumClientVersion) assert.ok(row.includes(contract.minimumClientVersion), `${file}: minimum client version`);
       if (contract.supportTier === "experimental") assert.ok(row.includes("🧪"), `${file}: ${contract.apiNamespace} is experimental`);
+      // "Simulated hosts only" is said of exactly the platforms without a run in their tool.
+      const onlySimulated = /simulated-host tests only|仅模拟宿主测试/.test(row);
+      assert.equal(onlySimulated, contract.validation.devtoolCompile !== "verified", `${file}: status of ${contract.apiNamespace}`);
     }
     assert.ok(new RegExp(`\\b${functions} (SDK functions|个 SDK 函数)`).test(text), `${file}: the SDK has ${functions} functions`);
   }
@@ -209,6 +271,58 @@ test("the API reference is generated from the Lua module and is current", () => 
   for (const record of [...api.groups.flatMap((group) => group.functions), ...api.methods]) {
     assert.ok(record.description.length > 0, `${record.signature} has no doc comment`);
   }
+});
+
+test("the API test app has a test for every function of the SDK", () => {
+  const api = readLuaApi();
+  const source = read("example/apitest.lua");
+  const names = api.groups.flatMap((group) => group.functions.map((record) => record.name));
+  const untested = names.filter((name) => !new RegExp(`minigame\\.${name}\\(`).test(source));
+  assert.deepEqual(untested, [], "add a test to example/apitest.lua for each new SDK function");
+});
+
+test("the example project's files point at files that exist", () => {
+  const project = read("game.project");
+  assert.match(project, /^main_collection = \/example\/main\.collectionc$/m);
+  assert.match(project, /^include_dirs = minigame$/m, "the repository is also the library a game depends on");
+  for (const [file, pattern] of [
+    ["example/main.collection", /prototype: "(\/[^"]+)"/g],
+    ["example/apitest.go", /component: "(\/[^"]+)"/g],
+    ["example/apitest.go", /sound: \\"(\/[^"\\]+)\\"/g],
+    ["example/apitest.gui", /(?:script|font): "(\/example\/[^"]+)"/g],
+  ]) {
+    const references = [...read(file).matchAll(pattern)].map((match) => match[1]);
+    assert.ok(references.length > 0, `${file}: no references found`);
+    for (const reference of references) assert.ok(existsSync(join(REPO_ROOT, reference)), `${file} refers to ${reference}`);
+  }
+  // Folders that are not part of the Defold project are kept out of its build.
+  for (const entry of read(".defignore").split("\n").filter(Boolean)) {
+    assert.ok(entry.startsWith("/"), `.defignore: ${entry}`);
+  }
+  assert.ok(read(".defignore").includes("/test\n") && read(".defignore").includes("/website\n"));
+});
+
+test("no real App ID or client key is written into the repository", () => {
+  // Examples and tests use one placeholder. A developer's own App ID belongs in
+  // their command line, never in a file here: not in the test app, a document,
+  // a test, or evidence copied from a developer tool.
+  const PLACEHOLDER = "wx0123456789abcdef";
+  const folders = ["bin", "docs", "example", "input", "minigame", "runtime", "scripts", "src", "test", "website", ".github"];
+  const files = ["README.md", "README_zh.md", "THIRD_PARTY_NOTICES.md", "game.project", "package.json", "support-matrix.json", ".defignore"];
+  const walk = (directory) => readdirSync(join(REPO_ROOT, directory), { withFileTypes: true }).flatMap((entry) => {
+    const path = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) return entry.name === "dist" || entry.name === "node_modules" ? [] : walk(path);
+    return /\.(png|wav|ico)$/.test(entry.name) ? [] : [path];
+  });
+  const found = [];
+  for (const path of [...files, ...folders.flatMap(walk)]) {
+    const text = read(path);
+    // WeChat: wx + 16 hex; Douyin: tt + 16 hex; TikTok client keys: aw or sbaw + letters and digits.
+    for (const [match] of text.matchAll(/\b(?:wx|tt)[0-9a-f]{16}\b|\b(?:sb)?aw[0-9a-z]{14,}\b/g)) {
+      if (match !== PLACEHOLDER) found.push(`${path}: ${match}`);
+    }
+  }
+  assert.deepEqual(found, []);
 });
 
 test("the package ships what it lists and depends on nothing", () => {

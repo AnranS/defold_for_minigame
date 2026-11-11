@@ -3,7 +3,7 @@
 本文覆盖导出工具的全部选项、三个平台的差异，以及存档、音频、输入、画面、网络、包体这些运行时行为。第一次使用请先看[快速开始](QUICK_START_zh.md)。
 
 > [!WARNING]
-> v0.1.0 是实验版。文中描述的运行时行为来自代码和模拟宿主测试，没有在开发者工具和真机上验证过。标了“未验证”的条目尤其要自己测。
+> v0.1.0 是实验版。启动、渲染、触摸、存档、声音和 Lua SDK 已经用真实引擎在微信开发者工具的模拟器里跑过。文中其余的运行时行为来自代码和模拟宿主测试；真机、抖音和 TikTok 的开发者工具都还没有跑过。标了“未验证”的条目尤其要自己测。
 
 ## 1. 环境准备
 
@@ -137,12 +137,23 @@ TikTok 上有两件事和另外两个平台不同，都来自 [godot_for_minigam
 ### 接入
 
 1. 把本仓库加为库依赖（`game.project` 的 Dependencies），执行 **Project > Fetch Libraries**。
-2. 把 `/minigame/minigame.go` 放进启动 collection。它在 `init` 里查找桥，在 `update` 里派发异步结果。不想加这个对象，就在自己的脚本里每帧调用一次 `minigame.update()`。
+2. 把 `/minigame/minigame.go` 放进启动 collection。它在 `init` 里查找桥，在 `update` 里派发异步结果。不想加这个对象，就在自己的脚本里每帧调用一次 `minigame.update()`。回调里要用 `gui.*` 的 GUI 脚本，还需要在自己的 `update()` 里调用 `minigame.update()`，原因见下一小节。
 3. `local minigame = require "minigame.minigame"`。
 
 ### 回调约定
 
-第一个参数是结果，失败时为 `nil`；最后一个参数是错误信息，成功时为 `nil`。回调在调用 `minigame.update()` 的那个脚本的上下文里执行。
+第一个参数是结果，失败时为 `nil`；最后一个参数是错误信息，成功时为 `nil`。
+
+回调在调用 `minigame.update()` 的那个脚本里执行。这一点很重要，因为 `gui.*`、用相对地址的 `go.*`、`msg.post(".")` 都作用在“正在运行的脚本”上：
+
+- 自己调用 `minigame.update()` 的脚本，只收到自己发起的调用的结果。
+- 从不调用它的脚本，由调用它的脚本代为派发，通常就是 `/minigame/minigame.go`。
+
+所以，回调里要操作界面节点的 GUI 脚本，应当在自己的 `update()` 里调用 `minigame.update()`；否则回调会报 “Node used in the wrong scene”。游戏对象脚本的回调如果只是改变量、给绝对地址发消息，有 `minigame.go` 就够了。
+
+### 日志
+
+引擎的 release 版会丢弃 `print()`。`minigame.log(message, level)` 在任何构建里都会写到宿主的控制台，`level` 取 `"info"`、`"warn"` 或 `"error"`。模块自己的警告（比如回调里抛了错）也写到那里。
 
 ### 常用功能
 
@@ -323,12 +334,14 @@ WebSocket 走宿主的 `connectSocket`。它供带 WebSocket 的原生扩展使�
 
 | 功能 | 状态 |
 |---|---|
-| 2D 渲染、GUI、粒子、瓦片地图、物理 | 引擎本身的功能，未验证 |
-| 触摸、多点触控 | 模拟宿主测试通过 |
-| `sys.save` / `sys.load` / `io.*` | 模拟宿主测试通过 |
+| 精灵、文字、GUI | 已在微信开发者工具里运行 |
+| 粒子、瓦片地图、物理、3D | 引擎本身的功能，未验证 |
+| 触摸 | 已在微信开发者工具里运行；多点触控通过模拟宿主测试 |
+| `sys.save` / `sys.load` | 已在微信开发者工具里运行，重启后能读回；`io.*` 通过模拟宿主测试 |
 | `http.request` | 模拟宿主测试通过 |
 | `gui.show_keyboard` | 模拟宿主测试通过，基础实现 |
-| 引擎声音 | 微信、抖音：模拟宿主测试通过；TikTok：默认关闭 |
+| 引擎声音 | 微信：已在微信开发者工具里运行；抖音：模拟宿主测试通过；TikTok：默认关闭 |
+| `minigame` 模块 | API 功能测试应用的自动项在微信开发者工具里全部通过；登录、弹窗、剪贴板、分享、广告、支付需要人点，没有运行 |
 | `html5.run` 执行 JavaScript | 不支持 |
 | WebAssembly 线程、SIMD、异常 | 不支持，导出时拦截 |
 | 带 JS 库的原生扩展 | 未验证 |
@@ -344,7 +357,7 @@ WebSocket 走宿主的 `connectSocket`。它供带 WebSocket 的原生扩展使�
 
 | Defold | 加载器设计 | 状态 |
 |---|---|---|
-| 1.14.1 | 会话式（`GameStartup`） | 静态核对通过，模拟宿主测试覆盖 |
+| 1.14.1 | 会话式（`GameStartup`） | 静态核对通过，模拟宿主测试覆盖，已在微信开发者工具里运行 |
 | 1.14.0 | 旧式（`_preloadAndCallMain`） | 静态核对通过，模拟宿主测试覆盖 |
 
 [`support-matrix.json`](../support-matrix.json) 记录了核对过的版本和每个版本做到了哪一级验证。不在表里的版本可以导出，导出结果里会有一条警告。
@@ -354,7 +367,10 @@ WebSocket 走宿主的 `connectSocket`。它供带 WebSocket 的原生扩展使�
 ```bash
 node scripts/verify_engine.mjs --version 1.14.1                       # 当前稳定版，SHA1 自动查询
 node scripts/verify_engine.mjs --version 1.14.0 --sha1 d295ed4edff2e49072719835713e625f409849f1
+node scripts/verify_engine.mjs --version 1.14.2 --sha1 <sha1> --channel alpha  # 预发布版
 ```
+
+想在没装 Defold 的机器上用真实引擎试一次，可以用 `scripts/fetch_example_bundle.mjs` 把 defold.com 上的一个示例拼成 HTML5 包，再用 `scripts/devtools_probe.mjs` 采集它在微信开发者工具里运行时的控制台日志和画面。两者的用法见[发布流程](RELEASING.md)。
 
 ## 16. 常见问题
 
@@ -378,3 +394,18 @@ node scripts/verify_engine.mjs --version 1.14.0 --sha1 d295ed4edff2e490727198357
 
 **能直接在 Defold 编辑器里导出吗？**
 目前不能，只有命令行工具。
+
+**启动日志说某个归档文件在包里是 N 字节，而导出时记录的是 M。**
+开发者工具正在用新旧混杂的文件运行，工程开着的时候重新导出就会这样。重新编译一次，或者清掉开发者工具的编译缓存。加载器之所以逐字节核对大小，就是为了让这种情况变成一条明确的报错。
+
+**控制台里看不到 `print()` 的输出。**
+引擎的 release 版会丢弃它。请用 `minigame.log()`，或者开发时打 debug 版的包。
+
+**回调报 “Node used in the wrong scene”。**
+GUI 的回调被派发时，正在运行的是别的脚本。在这个 GUI 脚本自己的 `update()` 里调用 `minigame.update()`，见[第 6 节](#6-lua-sdk)。
+
+**引擎报 “Unable to get a valid shader”。**
+引擎选了 WebGL 1，而包里没有 WebGL 1 的着色器，见[第 2 节](#2-打-html5-包)。在开发者工具里不应该出现这种情况：适配层不会把模拟机型的系统版本当真。
+
+**游戏在开发者工具里每秒只有一帧左右。**
+开发者工具的窗口在后台或者被挡住了，模拟器在这种情况下会被限速。把窗口切到前台。

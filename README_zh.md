@@ -10,6 +10,7 @@
   <a href="docs/API_zh.md">Lua SDK</a> ·
   <a href="docs/ARCHITECTURE.md">架构</a> ·
   <a href="docs/RESEARCH_zh.md">调研与设计依据</a> ·
+  <a href="https://anrans.github.io/defold_for_minigame/">官网</a> ·
   <a href="README.md">English</a>
 </p>
 
@@ -18,15 +19,21 @@
 </p>
 
 > [!WARNING]
-> **当前是 v0.1.0 实验版，还没有在任何开发者工具或真机上运行过。**
-> 已经验证的是：200 多项自动化测试（包括在模拟的微信、抖音、TikTok 宿主里启动导出的包），以及对 Defold 1.14.0 和 1.14.1 官方引擎的静态核对。
-> 没有验证的是：真实引擎在小游戏运行时里的实际表现。上线前必须自己过开发者工具和真机这两关。详见[验证状态](#验证状态)。
+> **当前是 v0.1.0 实验版。**
+> 已经验证的是：200 多项自动化测试，对 Defold 1.14.0 和 1.14.1 官方引擎的静态核对，以及真实引擎在微信开发者工具模拟器里的运行：启动、渲染、触摸、存档、声音和 Lua SDK。
+> 没有验证的是：抖音和 TikTok 的开发者工具，以及所有真机。上线前必须自己过开发者工具和真机这两关。详见[验证状态](#验证状态)。
+
+<p align="center">
+  <img src="docs/screenshots/apitest-wechat-devtools-1.png" width="270" alt="API 功能测试列表在微信开发者工具模拟器里的截图：Setup、Generic access、Account、Key-value storage 几组，自动项全部为绿色" />
+  <img src="docs/screenshots/apitest-wechat-devtools-2.png" width="270" alt="API 功能测试列表在微信开发者工具模拟器里向下滚动后的截图：System、Sharing、Ads、Payment 几组" />
+</p>
+<p align="center"><sub>真实截图：仓库自带的 API 功能测试列表，Defold 1.14.1，运行在微信开发者工具的模拟器里。绿色是通过，紫色的需要人点一下或会离开游戏。</sub></p>
 
 <table>
   <tr>
     <td align="center" width="25%"><h3>不用自编引擎</h3><sub>直接用 Defold 官方 HTML5 引擎，不需要 Emscripten，也不需要定制引擎模板</sub></td>
     <td align="center" width="25%"><h3>3 个平台</h3><sub>微信、抖音、TikTok Native，同一个 HTML5 包导出</sub></td>
-    <td align="center" width="25%"><h3>44 个 SDK 函数</h3><sub>Lua 模块 <code>minigame</code>，另可透传宿主的任意接口</sub></td>
+    <td align="center" width="25%"><h3>45 个 SDK 函数</h3><sub>Lua 模块 <code>minigame</code>，另可透传宿主的任意接口</sub></td>
     <td align="center" width="25%"><h3>0 个依赖</h3><sub>导出工具只需要 Node.js 20+，没有 npm 依赖</sub></td>
   </tr>
 </table>
@@ -80,7 +87,7 @@ minigame.show_toast("Level " .. minigame.storage_get("level", "1"))
 
 | 平台 | 运行时 API | `game.json` 分包字段 | 总包上限 | 状态 |
 |---|---|---|---|---|
-| 微信小游戏 | `wx` | `subpackages` | 30 MB | 🧪 实验：仅模拟宿主测试 |
+| 微信小游戏 | `wx` | `subpackages` | 30 MB | 🧪 实验：真实引擎已在微信开发者工具里运行，真机未验证 |
 | 抖音小游戏 | `tt` | `subPackages` | 20 MB | 🧪 实验：仅模拟宿主测试 |
 | TikTok Mini Game Native | `TTMinis.game` | `subpackages` | 30 MB | 🧪 实验：仅模拟宿主测试，需要 TikTok 43.4.0+ |
 
@@ -92,12 +99,14 @@ minigame.show_toast("Level " .. minigame.storage_get("level", "1"))
 
 ## 支持的 Defold 版本
 
-| Defold | 引擎 SHA1 | 加载器 | 静态核对 | 真实引擎运行 | 开发者工具 | 真机 |
-|---|---|---|---|---|---|---|
-| **`1.14.1`**（最新） | `ee283d4dad9f` | 会话式 | ✅ | ⬜ | ⬜ | ⬜ |
-| `1.14.0` | `d295ed4edff2` | 旧式 | ✅ | ⬜ | ⬜ | ⬜ |
+| Defold | 引擎 SHA1 | 加载器 | 静态核对 | 开发者工具 | 真机 |
+|---|---|---|---|---|---|
+| **`1.14.1`**（最新） | `ee283d4dad9f` | 会话式 | ✅ | 🟡 微信 | ⬜ |
+| `1.14.0` | `d295ed4edff2` | 旧式 | ✅ | ⬜ | ⬜ |
 
-Defold 在 1.14.1 重写了 HTML5 加载器的启动流程，所以运行时里有两条启动路径，测试对两条都覆盖。
+🟡 表示三个平台里只验证了一部分，后面写的是哪个平台。Defold 在 1.14.1 重写了 HTML5 加载器的启动流程，所以运行时里有两条启动路径，测试对两条都覆盖。
+
+1.14.2 的预发布版通过了同样的静态核对，defold.com 上用它构建的四个示例也在微信开发者工具里跑过。等 Defold 正式发布后再把它列进表里。
 
 导出不绑定版本号：每次导出都会检查 `dmloader.js` 和引擎胶水的结构是否符合预期，不符合就停下并说明缺了什么。不在表里的版本可以导出，但会给出警告。[`support-matrix.json`](support-matrix.json) 是这些数值的唯一事实源。
 
@@ -109,11 +118,17 @@ Defold 在 1.14.1 重写了 HTML5 加载器的启动流程，所以运行时里�
 | 模拟宿主 | 真实的 Defold 1.14.0 和 1.14.1 `dmloader.js` 加引擎替身，在模拟的 `wx`、`tt`、`TTMinis.game` 里启动、触摸、键盘、存档、音频、网络 | ✅ 自动化 |
 | Lua 联调 | LuaJIT 运行 `minigame.lua`，对接真实的 JS 桥 | ✅ 自动化 |
 | 静态核对 | Defold 1.14.0 和 1.14.1 官方引擎胶水和二进制：结构、WebAssembly 特性、严格模式编译 | ✅ 已做 |
-| 真实引擎运行 | 用 Defold 构建的真实游戏包启动 | ⬜ 未做 |
-| 开发者工具 | 微信、抖音开发者工具，`ttmg dev` | ⬜ 未做 |
+| 开发者工具 | 真实引擎和真实游戏包在微信开发者工具里运行；抖音开发者工具和 `ttmg dev` 还没有 | 🟡 仅微信 |
 | 真机 | iOS、Android | ⬜ 未做 |
 
-引擎替身是测试里代替 Emscripten 胶水的一段 JavaScript，它按真实胶水的约定工作，但不是真实引擎。所以模拟宿主测试能证明适配层自身的逻辑是自洽的，不能证明真实引擎能跑。
+引擎替身是测试里代替 Emscripten 胶水的一段 JavaScript，它按真实胶水的约定工作，但不是真实引擎。所以模拟宿主测试能证明适配层自身的逻辑是自洽的，不能证明真实引擎能跑。真实引擎第一次运行就暴露了替身没有覆盖到的两件事：引擎通过 `style.setProperty()` 调整画布尺寸；微信开发者工具上报的是它所模拟机型的系统版本，引擎因此退回了 WebGL 1。两处都已修复，替身和测试现在也覆盖了它们。
+
+在微信开发者工具 36.6.0 里实际运行过的内容如下，证据由 `scripts/devtools_probe.mjs` 采集（控制台日志、画布截图、回放的触摸）：
+
+- **Defold 1.14.1，仓库自带的 API 功能测试应用**，用 `bob.jar` 构建：38 项自动测试全部通过。另外 15 项需要人点一下，或者会离开游戏。
+- **Defold 1.14.2（预发布版），defold.com 上的四个示例**：精灵和文字正常渲染；回放的触摸以预期的坐标到达游戏；`sys.save()` 保存的值落到了磁盘上，三次重启后都能读回；音乐示例的声音能听到。
+
+每次运行都记录在 [`support-matrix.json`](support-matrix.json) 的 `hostRuns` 里。
 
 ## 已知限制
 
@@ -123,7 +138,10 @@ Defold 在 1.14.1 重写了 HTML5 加载器的启动流程，所以运行时里�
 - **老 iOS 需要 WebGL1 着色器**：引擎在 iOS 15.2 以下会自己退回 WebGL1；Defold 1.14.1 起默认不打包 WebGL1 着色器，需要在 `game.project` 里设置 `shader.exclude_gles_sm100 = 0`。
 - **带 JS 库的原生扩展没有验证**：扩展的 JS 代码会和引擎胶水一起放进作用域模块，但没有测试过。
 - **没有编辑器集成**：导出是命令行工具，Defold 编辑器里没有菜单项。
-- **示例工程没有构建过**：仓库根目录的 Defold 示例工程是手写的，这台机器没有 Defold 构建工具，没有验证它能通过构建。
+- **没有编辑器集成**：导出工具是命令行工具。
+- **回调在轮询的那个脚本里执行**：结果由 `minigame.update()` 派发，自己调用它的脚本只收到自己的结果。回调里要用 `gui.*` 的 GUI 脚本，需要在自己的 `update()` 里调用它；`/minigame/minigame.go` 只照顾那些自己不轮询的脚本。
+- **release 版里 `print()` 没有输出**：这是 Defold 的行为，不是宿主的问题。要写到宿主控制台，请用 `minigame.log()`。
+- **重新导出后开发者工具可能还在用旧文件**：如果启动日志说某个归档文件的大小和导出时记录的不一致，重新编译一次，或者清掉开发者工具的编译缓存。
 
 完整的兼容性说明见[使用指南](docs/USAGE_zh.md)。
 
@@ -137,6 +155,17 @@ Defold 在 1.14.1 重写了 HTML5 加载器的启动流程，所以运行时里�
 | 理解导出和运行时的设计 | [架构](docs/ARCHITECTURE.md) |
 | 了解为什么这样设计 | [调研与设计依据](docs/RESEARCH_zh.md) |
 | 发布新版本、认证新的 Defold 版本 | [发布流程](docs/RELEASING.md) |
+
+### API 功能测试应用
+
+仓库根目录的 Defold 工程是一个测试应用：`minigame` 模块的每个函数都是一个按钮，“Run all” 会把不需要人点的那些全部跑一遍。用 Defold 的 `bob.jar` 可以一步完成构建和导出：
+
+```bash
+node bin/defold-minigame.mjs build --project . --bob path/to/bob.jar \
+  --platform wechat --appid <你的 App ID> --assets example/assets --output ../apitest-wechat
+```
+
+在开发者工具里打开输出目录，点按钮，结果显示在对应分组下面。每条结果也会以 `[apitest] <状态> <编号> <说明>` 的形式写进宿主的控制台。
 
 `website/` 目录把这些文档生成为静态站点：`node website/build.mjs` 输出到 `website/dist`，`node website/serve.mjs` 在本机预览，并打印访问地址（从 4780 端口开始，被别的程序占用时自动换下一个）。它同样没有任何依赖。仓库开启 GitHub Pages 之后，`deploy-pages` 工作流会从 `main` 分支自动发布。
 

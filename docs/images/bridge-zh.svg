@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 594" width="1200" height="594" role="img" aria-labelledby="figure-title figure-description">
 <title id="figure-title">一次 SDK 调用怎样穿过 Lua 桥</title>
-<desc id="figure-description">第一步，minigame.login 通过 html5.run 把一条 JSON 命令交给桥。第二步，桥调用宿主的 wx.login。第三步，宿主的成功回调把结果放进队列。第四步，minigame.update 每帧用 poll 命令取一次队列。第五步，你的回调收到登录凭证。</desc>
+<desc id="figure-description">第一步，minigame.login 通过 html5.run 把一条 JSON 命令交给桥，命令的编号带着这个 Lua 环境的名字。第二步，桥调用宿主的 wx.login。第三步，宿主的成功回调把结果放进队列。第四步，minigame.update 每帧用 poll 命令取一次属于自己的结果。第五步，你的回调收到登录凭证。</desc>
 <defs>
 <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5bb4ff"/></marker>
 <marker id="arrow-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#9ca9bb"/></marker>
@@ -25,8 +25,8 @@
 <path d="M196 168H590" fill="none" stroke="#5bb4ff" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
 <circle cx="180" cy="168" r="11" fill="#0b1018" stroke="#5bb4ff" stroke-width="1.5"/>
 <text x="180" y="172.5" font-size="12.5" font-weight="650" fill="#5bb4ff" text-anchor="middle">1</text>
-<text x="390" y="156" font-size="13" fill="#f5f7fb" text-anchor="middle" class="mono">html5.run('{&quot;op&quot;:&quot;call&quot;,&quot;api&quot;:&quot;login&quot;,&quot;id&quot;:1}')</text>
-<text x="390" y="190" font-size="13" fill="#9ca9bb" text-anchor="middle">minigame.login(callback) 发出一条命令</text>
+<text x="390" y="156" font-size="13" fill="#f5f7fb" text-anchor="middle" class="mono">{&quot;op&quot;:&quot;call&quot;,&quot;api&quot;:&quot;login&quot;,&quot;id&quot;:&quot;c1:1&quot;}</text>
+<text x="390" y="190" font-size="13" fill="#9ca9bb" text-anchor="middle">minigame.login(callback) 经 html5.run() 发出命令</text>
 <path d="M616 244H1010" fill="none" stroke="#5bb4ff" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
 <circle cx="600" cy="244" r="11" fill="#0b1018" stroke="#5bb4ff" stroke-width="1.5"/>
 <text x="600" y="248.5" font-size="12.5" font-weight="650" fill="#5bb4ff" text-anchor="middle">2</text>
@@ -40,12 +40,12 @@
 <path d="M196 396H590" fill="none" stroke="#5bb4ff" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
 <circle cx="180" cy="396" r="11" fill="#0b1018" stroke="#5bb4ff" stroke-width="1.5"/>
 <text x="180" y="400.5" font-size="12.5" font-weight="650" fill="#5bb4ff" text-anchor="middle">4</text>
-<text x="390" y="384" font-size="13" fill="#f5f7fb" text-anchor="middle" class="mono">html5.run('{&quot;op&quot;:&quot;poll&quot;}')</text>
-<text x="390" y="418" font-size="13" fill="#9ca9bb" text-anchor="middle">minigame.update() 每帧取一次队列</text>
+<text x="390" y="384" font-size="13" fill="#f5f7fb" text-anchor="middle" class="mono">{&quot;op&quot;:&quot;poll&quot;,&quot;client&quot;:&quot;c1&quot;}</text>
+<text x="390" y="418" font-size="13" fill="#9ca9bb" text-anchor="middle">minigame.update() 每帧取一次自己的结果</text>
 <path d="M584 472H190" fill="none" stroke="#9ca9bb" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 6" marker-end="url(#arrow-muted)"/>
 <circle cx="600" cy="472" r="11" fill="#0b1018" stroke="#9ca9bb" stroke-width="1.5"/>
 <text x="600" y="476.5" font-size="12.5" font-weight="650" fill="#9ca9bb" text-anchor="middle">5</text>
-<text x="390" y="460" font-size="13" fill="#f5f7fb" text-anchor="middle" class="mono">[{&quot;id&quot;:1,&quot;ok&quot;:true,&quot;data&quot;:{&quot;code&quot;:&quot;…&quot;}}]</text>
+<text x="390" y="460" font-size="13" fill="#f5f7fb" text-anchor="middle" class="mono">[{&quot;id&quot;:&quot;c1:1&quot;,&quot;ok&quot;:true,&quot;data&quot;:{&quot;code&quot;:&quot;…&quot;}}]</text>
 <text x="390" y="494" font-size="13" fill="#9ca9bb" text-anchor="middle">你的回调收到 callback(code, nil)</text>
 <text x="600" y="562" font-size="13.5" fill="#68778b" text-anchor="middle">html5.run() 在浏览器里就是 eval。小游戏禁用 eval，所以导出时这一处调用被改接到桥上，桥只接受 JSON 命令。</text>
 </svg>

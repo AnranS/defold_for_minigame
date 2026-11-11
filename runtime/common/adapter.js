@@ -138,14 +138,37 @@ function _boundingRect() {
   };
 }
 
+/**
+ * An element's inline style. Besides plain properties it has the methods of
+ * CSSStyleDeclaration that engine code calls: Emscripten's Browser module
+ * removes and sets the canvas's width and height through them every time the
+ * engine sizes its window, which is on the first frame at the latest.
+ */
+function _createStyle(initial) {
+  const style = Object.assign({}, initial);
+  const key = (name) => String(name).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+  Object.defineProperties(style, {
+    setProperty: { value(name, value) { style[key(name)] = value === null || value === undefined ? "" : String(value); } },
+    removeProperty: {
+      value(name) {
+        const previous = style[key(name)];
+        delete style[key(name)];
+        return previous === undefined ? "" : String(previous);
+      },
+    },
+    getPropertyValue: { value(name) { const value = style[key(name)]; return value === undefined ? "" : String(value); } },
+  });
+  return style;
+}
+
 const _fakeParent = {
-  style: {},
+  style: _createStyle(),
   children: [],
   appendChild(child) { return child; },
   removeChild(child) { return child; },
   insertBefore(node) { return node; },
 };
-const _canvasStyle = { width: `${_viewportWidth}px`, height: `${_viewportHeight}px`, background: "" };
+const _canvasStyle = _createStyle({ width: `${_viewportWidth}px`, height: `${_viewportHeight}px`, background: "" });
 
 let _keyboard = null; // assigned below once the key event helpers exist
 let _contentEditable = false;
@@ -240,7 +263,7 @@ function _createElement(tag) {
     return _api.createImage();
   }
   const element = {
-    tagName: name.toUpperCase(), style: {}, className: "", id: "", src: "", type: "",
+    tagName: name.toUpperCase(), style: _createStyle(), className: "", id: "", src: "", type: "",
     innerHTML: "", textContent: "", children: [], childNodes: [], parentElement: null, parentNode: null,
     setAttribute() {}, getAttribute() { return null; }, hasAttribute() { return false; }, removeAttribute() {},
     addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; },
@@ -256,7 +279,7 @@ function _createElement(tag) {
 }
 
 const _container = () => ({
-  style: {},
+  style: _createStyle(),
   appendChild(child) { return child; },
   removeChild(child) { return child; },
   insertBefore(node) { return node; },
@@ -320,12 +343,17 @@ function _buildUserAgent() {
   const model = String(_sysInfo.model || "Unknown").replace(/[;()]/g, " ").trim() || "Unknown";
   const suffix = `MiniGame DefoldMiniGame/${_platform}`;
   const version = (system.match(/(\d+(?:[._]\d+)*)/) || [])[1] || "";
-  if (hostPlatform === "ios" || /^ios/i.test(system)) {
+  // A developer tool reports the system of the device it simulates (WeChat
+  // DevTools says "iOS 10.0.1" for an iPhone 12), but the game runs in the
+  // tool's own Chromium. Passing that version on would send the engine to
+  // WebGL 1, so a developer tool gets the generic user agent below.
+  const simulated = hostPlatform === "devtools";
+  if (!simulated && (hostPlatform === "ios" || /^ios/i.test(system))) {
     const iosVersion = (version || "15.4").replace(/\./g, "_");
     return `Mozilla/5.0 (iPhone; CPU iPhone OS ${iosVersion} like Mac OS X) AppleWebKit/605.1.15 `
       + `(KHTML, like Gecko) Mobile/15E148 ${suffix}`;
   }
-  if (hostPlatform === "android" || /^android/i.test(system)) {
+  if (!simulated && (hostPlatform === "android" || /^android/i.test(system))) {
     return `Mozilla/5.0 (Linux; Android ${version || "10"}; ${model}) AppleWebKit/537.36 `
       + `(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 ${suffix}`;
   }

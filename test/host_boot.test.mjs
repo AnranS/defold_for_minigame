@@ -105,6 +105,22 @@ test("Android and developer-tool hosts get a matching user agent and language", 
   assert.equal(devtools.engine.gl.majorVersion, 2);
 });
 
+test("a developer tool's simulated device does not make the engine fall back to WebGL 1", async (t) => {
+  // What WeChat DevTools 36.6.0 reports for its "iPhone 12/13 (Pro)" simulator.
+  // The game runs in the tool's own Chromium, whatever system the device claims;
+  // read as a real iOS 10 it sent a Defold 1.14.2 game to WebGL 1, for which
+  // the bundle has no shaders.
+  const workspace = makeWorkspace(t);
+  const host = await workspace.run("wechat", {
+    hostOptions: { system: { platform: "devtools", system: "iOS 10.0.1", model: "iPhone 12/13 (Pro)", pixelRatio: 3 } },
+  });
+  assert.match(host.engine.env.userAgent, /^Mozilla\/5\.0 \(devtools; iPhone 12\/13  Pro\) /);
+  assert.ok(!/iPhone OS|CPU .*OS \d/.test(host.engine.env.userAgent), "no iOS version for the engine to parse");
+  assert.equal(host.engine.gl.iOSVersion, false);
+  assert.equal(host.engine.gl.majorVersion, 2);
+  assert.deepEqual(host.state.contextRequests.map((request) => request.type), ["webgl2"]);
+});
+
 test("TikTok boots although GameGlobal is not the global object", async (t) => {
   const workspace = makeWorkspace(t);
   const host = await workspace.run("tiktok");

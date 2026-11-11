@@ -93,13 +93,58 @@ for (const platform of ["wechat", "douyin", "tiktok"]) {
       onSignal: () => { host.hide(); host.show(); },
     });
     assertAllPassed(results, 56);
-    assert.ok(logs.some((line) => /callback failed: .*boom/.test(line)), "a failing callback is logged");
+    assert.ok(host.warnings().some((line) => /\[DefoldMiniGame\]\[lua\] \[minigame\] callback failed: .*boom/.test(line)),
+      "a failing callback is logged in the host console, where a release build can show it");
+    assert.ok(!logs.some((line) => /callback failed/.test(line)), "and not printed a second time");
     assert.equal(host.crashed, null);
     assert.equal({ ...host.state.shareHandler() }.title, "Play with me");
     assert.equal(host.state.clipboard, "copied text");
     assert.equal(bridge.pending, 0, "the queue is drained");
   });
 }
+
+for (const platform of ["wechat", "douyin", "tiktok"]) {
+  test(`the API test app's list runs against the bridge in a simulated ${platform} host`, { skip }, async (t) => {
+    const host = runtimeRealm(t, platform, {
+      extendApi(api) {
+        // The app loads the subpackage the engine already came in; the host answers at once.
+        api.loadSubpackage = (options) => {
+          setTimeout(() => options.success({ errMsg: "loadSubpackage:ok" }), 2);
+          return { onProgressUpdate() {} };
+        };
+      },
+    });
+    const { createBridge } = host.require("js/bridge.js");
+    const { PlatformRuntime } = host.require("js/platform_runtime.js");
+    const bridge = createBridge(PlatformRuntime, { toolVersion: "test", engineAudio: platform !== "tiktok", persistence: "fs", pixelRatio: 1 });
+    const { results, logs } = await runLua({
+      mode: "bridge",
+      scenario: "scenario_apitest.lua",
+      answer: (code) => bridge.run(code),
+      onSignal: () => {},
+    });
+    assertAllPassed(results, 100);
+    assert.ok(logs.some((line) => /^apitest pass=\d+ skip=\d+ info=\d+ fail=0$/.test(line)), logs.filter((line) => line.startsWith("apitest")).join("; "));
+    assert.equal(host.crashed, null, "no test touches an API that ends the client");
+  });
+}
+
+test("two Lua states share one bridge without taking each other's results", { skip }, async (t) => {
+  // Defold runs game object scripts and GUI scripts in separate Lua states by
+  // default. Both poll the same bridge, so results have to find their owner.
+  const host = runtimeRealm(t, "wechat");
+  const { createBridge } = host.require("js/bridge.js");
+  const { PlatformRuntime } = host.require("js/platform_runtime.js");
+  const bridge = createBridge(PlatformRuntime, { toolVersion: "test", engineAudio: true, persistence: "fs", pixelRatio: 1 });
+  const { results } = await runLua({
+    mode: "bridge",
+    scenario: "scenario_two_states.lua",
+    answer: (code) => bridge.run(code),
+    onSignal: () => { host.hide(); host.show(); },
+  });
+  assertAllPassed(results, 23);
+  assert.equal(host.crashed, null);
+});
 
 test("every SDK call is safe on a platform without html5", { skip }, async () => {
   const { results } = await runLua({ mode: "native", scenario: "scenario_nohost.lua" });

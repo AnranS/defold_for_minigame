@@ -10,6 +10,7 @@
   <a href="docs/API.md">Lua SDK</a> ·
   <a href="docs/ARCHITECTURE.md">Architecture</a> ·
   <a href="docs/RESEARCH_zh.md">Research and rationale (Chinese)</a> ·
+  <a href="https://anrans.github.io/defold_for_minigame/en/">Website</a> ·
   <a href="README_zh.md">简体中文</a>
 </p>
 
@@ -18,15 +19,21 @@
 </p>
 
 > [!WARNING]
-> **This is v0.1.0, an experimental release that has not yet run in any developer tool or on any device.**
-> Verified: more than 200 automated tests, including booting exported packages in simulated WeChat, Douyin, and TikTok hosts, and a static check against the stock Defold 1.14.0 and 1.14.1 engines.
-> Not verified: how the real engine behaves inside a mini-game runtime. Pass the developer tool and a real device yourself before you ship. See [Validation status](#validation-status).
+> **This is v0.1.0, an experimental release.**
+> Verified: more than 200 automated tests, a static check against the stock Defold 1.14.0 and 1.14.1 engines, and the real engine running in the WeChat DevTools simulator: start-up, rendering, touch, saves, sound, and the Lua SDK.
+> Not verified: the Douyin and TikTok developer tools, and every real device. Pass the developer tool and a real device yourself before you ship. See [Validation status](#validation-status).
+
+<p align="center">
+  <img src="docs/screenshots/apitest-wechat-devtools-1.png" width="270" alt="The API test app in the WeChat DevTools simulator: the Setup, Generic access, Account, and Key-value storage groups, with every unattended test green" />
+  <img src="docs/screenshots/apitest-wechat-devtools-2.png" width="270" alt="The API test app in the WeChat DevTools simulator, scrolled down: the System, Sharing, Ads, and Payment groups" />
+</p>
+<p align="center"><sub>Real screenshots: the API test app in this repository on Defold 1.14.1, in the WeChat DevTools simulator. Green passed; purple needs a tap or leaves the game.</sub></p>
 
 <table>
   <tr>
     <td align="center" width="25%"><h3>No custom engine</h3><sub>Uses Defold's stock HTML5 engine. No Emscripten, no engine template to build</sub></td>
     <td align="center" width="25%"><h3>3 platforms</h3><sub>WeChat, Douyin, and TikTok Native from the same HTML5 bundle</sub></td>
-    <td align="center" width="25%"><h3>44 SDK functions</h3><sub>The <code>minigame</code> Lua module, plus pass-through to any host API</sub></td>
+    <td align="center" width="25%"><h3>45 SDK functions</h3><sub>The <code>minigame</code> Lua module, plus pass-through to any host API</sub></td>
     <td align="center" width="25%"><h3>0 dependencies</h3><sub>The exporter needs Node.js 20+ and nothing from npm</sub></td>
   </tr>
 </table>
@@ -80,7 +87,7 @@ minigame.show_toast("Level " .. minigame.storage_get("level", "1"))
 
 | Platform | Runtime API | `game.json` subpackage field | Total limit | Status |
 |---|---|---|---|---|
-| WeChat Mini Game | `wx` | `subpackages` | 30 MB | 🧪 Experimental: simulated-host tests only |
+| WeChat Mini Game | `wx` | `subpackages` | 30 MB | 🧪 Experimental: the real engine runs in WeChat DevTools; no device yet |
 | Douyin Mini Game | `tt` | `subPackages` | 20 MB | 🧪 Experimental: simulated-host tests only |
 | TikTok Mini Game Native | `TTMinis.game` | `subpackages` | 30 MB | 🧪 Experimental: simulated-host tests only; needs TikTok 43.4.0+ |
 
@@ -92,12 +99,14 @@ The main package limit is 4 MB everywhere. An empty project exported with the st
 
 ## Supported Defold versions
 
-| Defold | Engine SHA1 | Loader | Static check | Real engine run | Developer tool | Device |
-|---|---|---|---|---|---|---|
-| **`1.14.1`** (latest) | `ee283d4dad9f` | session | ✅ | ⬜ | ⬜ | ⬜ |
-| `1.14.0` | `d295ed4edff2` | legacy | ✅ | ⬜ | ⬜ | ⬜ |
+| Defold | Engine SHA1 | Loader | Static check | Developer tool | Device |
+|---|---|---|---|---|---|
+| **`1.14.1`** (latest) | `ee283d4dad9f` | session | ✅ | 🟡 WeChat | ⬜ |
+| `1.14.0` | `d295ed4edff2` | legacy | ✅ | ⬜ | ⬜ |
 
-Defold rewrote the start-up flow of its HTML5 loader in 1.14.1, so the runtime has two boot paths and the tests cover both.
+🟡 means some of the three platforms: the name says which. Defold rewrote the start-up flow of its HTML5 loader in 1.14.1, so the runtime has two boot paths and the tests cover both.
+
+A pre-release build of 1.14.2 passes the same static check, and four examples from defold.com that were built with it ran in WeChat DevTools. It joins the table when Defold releases it.
 
 An export is not tied to a version number: every export checks that `dmloader.js` and the engine glue have the expected structure, and stops with the missing parts when they do not. A version that is not in the table can be exported, with a warning. [`support-matrix.json`](support-matrix.json) is the single source of truth for these values.
 
@@ -109,11 +118,17 @@ An export is not tied to a version number: every export checks that `dmloader.js
 | Simulated hosts | the real Defold 1.14.0 and 1.14.1 `dmloader.js` with an engine stand-in: boot, touch, keyboard, saves, audio, network in simulated `wx`, `tt`, and `TTMinis.game` | ✅ automated |
 | Lua integration | LuaJIT runs `minigame.lua` against the real JavaScript bridge | ✅ automated |
 | Static check | the stock Defold 1.14.0 and 1.14.1 engine glue and binary: structure, WebAssembly features, strict-mode compile | ✅ done |
-| Real engine run | booting a real game bundle built by Defold | ⬜ not done |
-| Developer tools | WeChat and Douyin developer tools, `ttmg dev` | ⬜ not done |
+| Developer tools | the real engine and a real game bundle in WeChat DevTools; Douyin DevTools and `ttmg dev` not yet | 🟡 WeChat only |
 | Devices | iOS, Android | ⬜ not done |
 
-The engine stand-in is JavaScript that takes the place of the Emscripten glue in tests. It follows the real glue's contract, but it is not the real engine. The simulated-host tests therefore prove that the adapter's own logic is consistent; they do not prove that the real engine runs.
+The engine stand-in is JavaScript that takes the place of the Emscripten glue in tests. It follows the real glue's contract, but it is not the real engine. The simulated-host tests therefore prove that the adapter's own logic is consistent; they do not prove that the real engine runs. The first run of the real engine found two things the stand-in had not: the engine sizes its canvas through `style.setProperty()`, and WeChat DevTools reports the system of the device it simulates, which sent the engine to WebGL 1. Both are fixed, and the stand-in and the tests now cover them.
+
+What ran in WeChat DevTools 36.6.0, with the evidence collected by `scripts/devtools_probe.mjs` (console log, frames from the canvas, replayed touches):
+
+- **Defold 1.14.1, the API test app in this repository**, built with `bob.jar`: all 38 unattended API tests passed. The other 15 need a tap or leave the game.
+- **Defold 1.14.2 (alpha), four examples from defold.com**: sprites and text rendered; replayed touches arrived with the expected coordinates; a value saved with `sys.save()` was on disk and was loaded after three restarts; the music example's sound was heard.
+
+[`support-matrix.json`](support-matrix.json) records each run under `hostRuns`.
 
 ## Known limitations
 
@@ -123,7 +138,9 @@ The engine stand-in is JavaScript that takes the place of the Emscripten glue in
 - **Old iOS needs WebGL 1 shaders.** The engine falls back to WebGL 1 below iOS 15.2, and Defold 1.14.1 and later leave those shaders out by default. Set `shader.exclude_gles_sm100 = 0` in `game.project`.
 - **Native extensions with JavaScript libraries are untested.** Their code ends up in the scoped module with the engine glue; nobody has tried it.
 - **No editor integration.** The exporter is a command-line tool.
-- **The example project has not been built.** The Defold project in the repository root was written by hand on a machine without the Defold build tool.
+- **Callbacks run in the script that polls.** `minigame.update()` delivers results, and a script that calls it gets its own. A GUI script whose callbacks use `gui.*` has to call it in its own `update()`; `/minigame/minigame.go` only covers scripts that do not poll themselves.
+- **`print()` is silent in a release build.** That is Defold's behaviour, not the host's. Use `minigame.log()` to write to the host's console.
+- **A developer tool may keep old files after an export.** If the start-up log says an archive file has a different size than the export recorded, compile again or clear the tool's compile cache.
 
 The full compatibility notes are in the [usage guide](docs/USAGE.md).
 
@@ -137,6 +154,17 @@ The full compatibility notes are in the [usage guide](docs/USAGE.md).
 | Understand the exporter and the runtime | [Architecture](docs/ARCHITECTURE.md) |
 | Know why it is built this way | [Research and rationale](docs/RESEARCH_zh.md) (Chinese) |
 | Release a version or certify a Defold version | [Release process](docs/RELEASING.md) |
+
+### The API test app
+
+The Defold project in the repository root is a test app: every function of the `minigame` module is a button, and "Run all" runs the ones that need no tap. Build it and export it in one step with Defold's `bob.jar`:
+
+```bash
+node bin/defold-minigame.mjs build --project . --bob path/to/bob.jar \
+  --platform wechat --appid <your app id> --assets example/assets --output ../apitest-wechat
+```
+
+Open the output in the developer tool, tap a button, and read the result under its group. Every result is also written to the host's console as `[apitest] <status> <id> <detail>`.
 
 The `website/` folder turns the same documents into a static site: `node website/build.mjs` writes it to `website/dist`, and `node website/serve.mjs` serves it on this machine for a look and prints the address (it starts at port 4780 and moves on if another program has that port). It has no dependencies either. The `deploy-pages` workflow publishes it from `main` once GitHub Pages is enabled for the repository.
 

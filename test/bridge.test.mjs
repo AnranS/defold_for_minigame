@@ -145,6 +145,37 @@ test("binary values cross the bridge as base64", async (t) => {
   assert.deepEqual(wire, { n: null, list: [1, null] });
 });
 
+test("each client gets a name at the handshake and polls only its own results", async (t) => {
+  const { bridge, module, send } = setup(t, "wechat");
+  const handshake = () => JSON.parse(bridge.run(module.HANDSHAKE_EXPRESSION));
+  const first = handshake().client;
+  const second = handshake().client;
+  assert.equal(first, "c1");
+  assert.equal(second, "c2");
+  // The info operation describes the bridge; it does not hand out a name.
+  assert.equal(send({ op: "info" }).data.client, undefined);
+
+  send({ op: "call", api: "login", id: `${first}:1` });
+  send({ op: "call", api: "login", id: `${second}:1` });
+  send({ op: "call", api: "checkSession", id: `${first}:2` });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  const mine = send({ op: "poll", client: first });
+  assert.deepEqual(mine.map((event) => event.id), [`${first}:1`, `${first}:2`]);
+  assert.equal(send({ op: "poll", client: first }), "", "nothing left for the first client");
+  assert.equal(bridge.pending, 1, "the second client's result is still queued");
+  // A name is matched whole: "c" is not the owner of "c2:1".
+  assert.equal(send({ op: "poll", client: "c" }), "");
+  assert.deepEqual(send({ op: "poll", client: second }).map((event) => event.id), [`${second}:1`]);
+  assert.equal(bridge.pending, 0);
+
+  // A module from before clients existed polls without a name and gets everything.
+  send({ op: "call", api: "login", id: 7 });
+  send({ op: "call", api: "login", id: `${first}:3` });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.deepEqual(send({ op: "poll" }).map((event) => event.id), [7, `${first}:3`]);
+});
+
 test("TikTok blocks the host calls that can terminate the client", (t) => {
   const { send, host } = setup(t, "tiktok");
   for (const api of ["getStorageInfoSync", "getFileSystemManager"]) {

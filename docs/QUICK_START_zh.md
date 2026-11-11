@@ -1,6 +1,6 @@
 # 快速开始
 
-从一个 Defold 工程到开发者工具里能打开的小游戏工程，一共四步。先说明一点：导出工具目前只通过了自动化测试和模拟宿主测试，还没有在开发者工具和真机上跑过，第四步很可能遇到需要反馈的问题。
+从一个 Defold 工程到开发者工具里能打开的小游戏工程，一共四步。先说明一点：真实引擎目前只在微信开发者工具的模拟器里跑过。抖音和 TikTok 的开发者工具、以及所有真机都还没有验证，第四步很可能遇到需要反馈的问题。
 
 ## 准备
 
@@ -62,7 +62,7 @@ Exported MyGame (Defold 1.14.1) for WeChat Mini Game
    https://github.com/AnranS/defold_for_minigame/archive/refs/heads/main.zip
    ```
 
-2. 把 `/minigame/minigame.go` 加进启动 collection。它每帧替你派发异步结果和宿主事件。
+2. 把 `/minigame/minigame.go` 加进启动 collection。它每帧替你派发异步结果和宿主事件。回调里要用 `gui.*` 的 GUI 脚本，还要在自己的 `update()` 里调用 `minigame.update()`。
 3. 在脚本里使用：
 
    ```lua
@@ -122,11 +122,12 @@ ttmg dev
 | `instantiating engine/dmengine.wasm.br` | 宿主不支持引擎用到的 WebAssembly 特性，或基础库版本太低 |
 | `the engine glue is loaded; waiting for the runtime` | 引擎初始化没走完，看这一行后面的报错 |
 | 没有任何 `[DefoldMiniGame]` 日志 | `game.js` 没执行，检查 App ID 和工程类型是不是“小游戏” |
+| `archive file … is N bytes in the package, but the export recorded M` | 开发者工具在用新旧混杂的文件运行，重新编译一次或清掉它的编译缓存 |
 
 把控制台日志和导出时打印的那几行信息一起反馈，最容易定位。
 
 ## 下一步
 
 - [使用指南](USAGE_zh.md)：全部导出选项、三个平台的差异、存档、音频、键盘、包体。
-- [Lua SDK 参考](API_zh.md)：44 个函数的说明。
+- [Lua SDK 参考](API_zh.md)：45 个函数的说明。
 - [架构](ARCHITECTURE.md)：导出和运行时是怎么工作的。

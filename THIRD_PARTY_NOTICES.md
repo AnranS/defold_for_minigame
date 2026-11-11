@@ -47,5 +47,12 @@ project's MIT license and do not mean that the platforms endorse the project.
 The upstream source and license of each icon file are not recorded in that
 repository; replace or remove the files if that matters for your use.
 
-The figures in `docs/images/` are drawn by `scripts/generate_diagrams.mjs` and
-are part of this project.
+The figures in `docs/images/` are drawn by `scripts/generate_diagrams.mjs`, and
+`example/assets/tone.wav` is a generated sine tone. Both are part of this
+project.
+
+The screenshots in `docs/screenshots/` are frames taken from a game's canvas in
+the WeChat DevTools simulator. The `apitest-*` files show this project's API
+test app. The `example-*` files show three examples from
+https://defold.com/examples/ (sprite/flip, input/mouse_and_touch,
+file/sys_save_load), which the Defold Foundation publishes under CC0 1.0.

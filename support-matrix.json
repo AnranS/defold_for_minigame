@@ -25,7 +25,7 @@
       "validation": {
         "exportSmoke": "automated",
         "simulatedHost": "automated",
-        "devtoolCompile": "not-run",
+        "devtoolCompile": "verified",
         "realDevice": "not-run"
       }
     },
@@ -99,9 +99,16 @@
       "validation": {
         "staticContract": "verified",
         "wasmFeatureScan": "verified",
-        "simulatedHost": "not-run",
-        "devtool": "not-run",
-        "realDevice": "not-run"
+        "devtool": {
+          "wechat": "not-run",
+          "douyin": "not-run",
+          "tiktok": "not-run"
+        },
+        "realDevice": {
+          "wechat": "not-run",
+          "douyin": "not-run",
+          "tiktok": "not-run"
+        }
       }
     },
     {
@@ -124,9 +131,62 @@
       "validation": {
         "staticContract": "verified",
         "wasmFeatureScan": "verified",
-        "simulatedHost": "not-run",
-        "devtool": "not-run",
-        "realDevice": "not-run"
+        "devtool": {
+          "wechat": "verified",
+          "douyin": "not-run",
+          "tiktok": "not-run"
+        },
+        "realDevice": {
+          "wechat": "not-run",
+          "douyin": "not-run",
+          "tiktok": "not-run"
+        }
+      }
+    }
+  ],
+  "hostRuns": [
+    {
+      "date": "2026-11-11",
+      "platform": "wechat",
+      "host": "WeChat DevTools 36.6.0, simulator, base library 3.17.6",
+      "defoldVersion": "1.14.1",
+      "engineSha1": "ee283d4dad9fa451dd6399d83602e1dc25133681",
+      "channel": "stable",
+      "bundle": "the API test app in this repository, built with bob.jar",
+      "checks": [
+        "start-up",
+        "rendering",
+        "touch",
+        "saves",
+        "engine sound",
+        "host audio",
+        "Lua SDK"
+      ],
+      "result": "38 of 38 unattended API tests passed; the other 15 need a tap or leave the game and were not run",
+      "zh": {
+        "bundle": "本仓库的 API 功能测试应用，用 bob.jar 构建",
+        "result": "38 项自动测试全部通过；另外 15 项需要人点一下或会离开游戏，没有运行"
+      }
+    },
+    {
+      "date": "2026-11-11",
+      "platform": "wechat",
+      "host": "WeChat DevTools 36.6.0, simulator, base library 3.17.6",
+      "defoldVersion": "1.14.2",
+      "engineSha1": "8dc9127ea06b17881f0c1227b48c7113fd288f97",
+      "channel": "alpha",
+      "bundle": "four examples from defold.com/examples: sprite/flip, input/mouse_and_touch, file/sys_save_load, sound/music",
+      "checks": [
+        "start-up",
+        "rendering",
+        "touch",
+        "saves",
+        "engine sound"
+      ],
+      "result": "all four ran without an error; touch coordinates and the saved value matched what was expected, and the music was heard",
+      "zh": {
+        "bundle": "defold.com/examples 上的四个示例：sprite/flip、input/mouse_and_touch、file/sys_save_load、sound/music",
+        "result": "四个都运行无报错；触摸坐标和存档的值与预期一致，音乐能听到"
       }
     }
   ]

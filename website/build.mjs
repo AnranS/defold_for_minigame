@@ -25,6 +25,15 @@ import { escapeHtml, renderMarkdown } from "./lib/markdown.mjs";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, "..");
 const DEFAULT_BRANCH = "main";
+/** How wide a screenshot is shown, in CSS pixels. The files are twice that or more. */
+const SCREENSHOT_WIDTH = 260;
+
+/** Width and height of a PNG file, read from its header. */
+function pngSize(path) {
+  const header = readFileSync(path).subarray(0, 24);
+  if (header.toString("latin1", 1, 4) !== "PNG") throw new Error(`${path} is not a PNG file`);
+  return { width: header.readUInt32BE(16), height: header.readUInt32BE(20) };
+}
 
 // ── site data ────────────────────────────────────────────────────────────────
 
@@ -59,6 +68,13 @@ export function loadSite() {
       referenceDefold: REFERENCE_SIZES.defoldVersion,
     },
   };
+}
+
+/** How far a platform has come: "simulated", "devtool", or "device". */
+function platformStage(platform) {
+  const validation = platform.validation;
+  if (validation.devtoolCompile !== "verified") return "simulated";
+  return validation.realDevice === "verified" ? "device" : "devtool";
 }
 
 function megabytes(bytes) {
@@ -174,6 +190,9 @@ export function resolveDocumentLink(href, { source, route, lang, site }) {
   const target = posix.normalize(posix.join(posix.dirname(source), path));
   if (target.startsWith("..") || !existsSync(join(REPO_ROOT, target))) {
     throw new Error(`${source} links to ${href}, which is not a file in the repository`);
+  }
+  if (target.startsWith("docs/screenshots/")) {
+    return `${relativeHref(route, "")}screenshots/${target.slice("docs/screenshots/".length)}`;
   }
   if (target.startsWith(`${IMAGE_DIRECTORY}/`)) {
     let file = target.slice(IMAGE_DIRECTORY.length + 1);
@@ -336,15 +355,22 @@ function sectionHead(kicker, title, lead) {
 
 /**
  * How far a validation level has come, read from the matrix: "all", "some",
- * or "none" of the entries that carry it are verified.
+ * or "none" of the entries that carry it are verified. A level that is kept
+ * per platform counts once for each platform.
  */
 function progress(entries, fields) {
-  const states = entries.flatMap((entry) => fields.map((field) => {
+  const states = entries.flatMap((entry) => fields.flatMap((field) => {
     if (!(field in entry.validation)) throw new Error(`support-matrix.json: missing validation.${field}`);
-    return entry.validation[field] === "verified";
+    const value = entry.validation[field];
+    return (typeof value === "object" ? Object.values(value) : [value]).map((state) => state === "verified");
   }));
   if (states.every(Boolean)) return "all";
   return states.some(Boolean) ? "some" : "none";
+}
+
+/** The platforms on which a per-platform level is verified, by their short names. */
+function verifiedPlatforms(level, names) {
+  return Object.keys(level).filter((key) => level[key] === "verified").map((key) => pick(names, key, "short platform name"));
 }
 
 function renderHome(lang, site) {
@@ -373,18 +399,24 @@ function renderHome(lang, site) {
       `${megabytes(limits.main)} / ${megabytes(limits.total)}`,
       escapeHtml(pick(t.persistence, platform.defaults.persistence, "save backend name")),
       escapeHtml(platform.defaults.engineAudio ? t.audio.on : t.audio.off),
-      `<span class="pill warn">${escapeHtml(pick(t.tier, platform.supportTier, "support tier name"))}</span>`,
+      `<span class="pill warn">${escapeHtml(pick(t.tier, platform.supportTier, "support tier name"))}</span>`
+        + ` <small>${escapeHtml(pick(t.platformStatus, platformStage(platform), "platform status"))}</small>`,
     ];
   });
 
+  // A level kept per platform says where it holds when it holds only in part.
+  const perPlatform = (level) => {
+    const where = verifiedPlatforms(level, t.platformShort);
+    const state = progress([{ validation: { level } }], ["level"]);
+    return state === "some" ? `${pill(state)} <small>${escapeHtml(where.join(t.listSeparator))}</small>` : pill(state);
+  };
   const engineRows = engines.map((engine) => [
     `<code>${escapeHtml(engine.defoldVersion)}</code>`,
     `<code>${escapeHtml(engine.engineSha1.slice(0, 12))}</code>`,
     escapeHtml(pick(t.generation, engine.loaderGeneration, "loader design name")),
     pill(progress([engine], ["staticContract", "wasmFeatureScan"])),
-    pill(progress([engine], ["simulatedHost"])),
-    pill(progress([engine], ["devtool"])),
-    pill(progress([engine], ["realDevice"])),
+    perPlatform(engine.validation.devtool),
+    perPlatform(engine.validation.realDevice),
   ]);
 
   // The four finished levels are what the test suite and verify_engine.mjs
@@ -393,7 +425,6 @@ function renderHome(lang, site) {
   const evidence = {
     automated: `<span class="pill ok">${escapeHtml(t.automated)}</span>`,
     static: pill(progress(engines, ["staticContract", "wasmFeatureScan"])),
-    engineRun: pill(progress(engines, ["simulatedHost"])),
     devtool: pill(progress(platforms.map(([, platform]) => platform), ["devtoolCompile"])),
     device: pill(progress(platforms.map(([, platform]) => platform), ["realDevice"])),
   };
@@ -402,6 +433,23 @@ function renderHome(lang, site) {
     escapeHtml(what),
     pick(evidence, key, "validation level"),
   ]);
+
+  // What was actually run in a host, newest first, as the matrix records it.
+  const runRows = [...(site.matrix.hostRuns || [])].sort((a, b) => b.date.localeCompare(a.date)).map((run) => [
+    escapeHtml(run.date),
+    `${escapeHtml(pick(t.platformShort, run.platform, "short platform name"))}<br /><small>${escapeHtml(run.host)}</small>`,
+    `<code>${escapeHtml(run.defoldVersion)}</code>${run.channel === "stable" ? "" : ` <small>${escapeHtml(run.channel)}</small>`}`,
+    `${escapeHtml((lang === "zh" && run.zh ? run.zh : run).bundle)}<br /><small>${escapeHtml((lang === "zh" && run.zh ? run.zh : run).result)}</small>`,
+  ]);
+  // Real frames from a developer tool's simulator, each with what it shows.
+  const screenshots = t.shots.map((shot) => {
+    const file = join(REPO_ROOT, "docs", "screenshots", shot.file);
+    if (!existsSync(file)) throw new Error(`docs/screenshots/${shot.file} is missing`);
+    const size = pngSize(file);
+    const height = Math.round((SCREENSHOT_WIDTH * size.height) / size.width);
+    return `<figure><img src="${relativeHref(route, "")}screenshots/${shot.file}" alt="${escapeHtml(shot.caption)}" width="${SCREENSHOT_WIDTH}" height="${height}" loading="lazy" />`
+      + `<figcaption>${escapeHtml(shot.caption)}</figcaption></figure>`;
+  });
 
   const quickStart = readRepoFile(DOCUMENTS.find((doc) => doc.id === "quick-start").source[lang]);
   const snippet = firstCodeBlock(quickStart, "lua");
@@ -509,6 +557,19 @@ function renderHome(lang, site) {
   <div class="container">
     ${sectionHead(t.validationKicker, t.validationTitle)}
     ${table(t.validationHeaders, validationRows)}
+    <h3 class="figure-title">${text(t.runsTitle)}</h3>
+    ${table(t.runHeaders, runRows, "wide")}
+    <p class="section-lead runs-note">${text(t.runsNote)}</p>
+  </div>
+</section>
+
+<section class="section" id="screenshots">
+  <div class="container">
+    ${sectionHead(t.screenshotsKicker, t.screenshotsTitle, fill(t.screenshotsLead, site.values))}
+    <div class="screenshots">
+      ${screenshots.join("\n      ")}
+    </div>
+    <p class="section-lead runs-note">${text(t.shotsNote)}</p>
   </div>
 </section>
 
@@ -586,6 +647,7 @@ export function buildSite(options = {}) {
   cpSync(join(HERE, "assets"), join(outDir, "assets"), { recursive: true });
   mkdirSync(join(outDir, "images"), { recursive: true });
   for (const drawn of site.figures) writeFileSync(join(outDir, "images", drawn.file), drawn.svg);
+  cpSync(join(REPO_ROOT, "docs", "screenshots"), join(outDir, "screenshots"), { recursive: true });
   // Tells GitHub Pages to serve the files as they are.
   writeFileSync(join(outDir, ".nojekyll"), "");
   return { outDir, pages };

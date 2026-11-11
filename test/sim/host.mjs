@@ -16,7 +16,7 @@
  */
 
 import {
-  existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync,
+  appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync,
 } from "node:fs";
 import { dirname, join, posix } from "node:path";
 import vm from "node:vm";
@@ -170,6 +170,13 @@ export function createHost(options) {
       if (!existsSync(dirname(target.full))) throw hostError(`fail no such file or directory, open ${path}`);
       writeFileSync(target.full, typeof data === "string" ? Buffer.from(data, encoding || "utf8") : fromRealmBinary(data));
     },
+    appendFileSync(path, data, encoding) {
+      record("fs.appendFileSync", [path]);
+      writeGuard("appendFileSync");
+      const target = resolvePath(path, { write: true });
+      if (!existsSync(target.full)) throw hostError(`fail no such file or directory, open ${path}`);
+      appendFileSync(target.full, typeof data === "string" ? Buffer.from(data, encoding || "utf8") : fromRealmBinary(data));
+    },
     accessSync(path) {
       const target = resolvePath(path);
       if (!existsSync(target.full)) throw hostError(`fail no such file or directory ${path}`);
@@ -210,7 +217,22 @@ export function createHost(options) {
   function makeContext(type) {
     if (type === "webgl2") {
       if (options.webgl2 === false) return null;
-      return { __type: "webgl2", createVertexArray() {}, texStorage2D() {}, getParameter() { return null; } };
+      return {
+        __type: "webgl2", createVertexArray() {}, texStorage2D() {}, getParameter() { return null; },
+        // Enough of a frame buffer for a tool that copies what was drawn:
+        // a 6 by 4 image, blue with one red pixel in the bottom-left corner.
+        drawingBufferWidth: 6, drawingBufferHeight: 4,
+        FRAMEBUFFER: 0x8d40, FRAMEBUFFER_BINDING: 0x8ca6, RGBA: 0x1908, UNSIGNED_BYTE: 0x1401,
+        bindFramebuffer() {},
+        readPixels(x, y, width, height, format, type, pixels) {
+          for (let index = 0; index < width * height; index += 1) {
+            pixels[index * 4] = index === 0 ? 255 : 0;
+            pixels[index * 4 + 1] = 0;
+            pixels[index * 4 + 2] = index === 0 ? 0 : 255;
+            pixels[index * 4 + 3] = 255;
+          }
+        },
+      };
     }
     if (type === "webgl" || type === "experimental-webgl") {
       return { __type: "webgl", getParameter() { return null; } };

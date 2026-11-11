@@ -82,7 +82,7 @@ return function(minigame)
     local shows, hides = 0, 0
     local show_id = minigame.on_show(function() shows = shows + 1 end)
     minigame.on_hide(function() hides = hides + 1 end)
-    check("on_show returns an id", type(show_id) == "number")
+    check("on_show returns an id", type(show_id) == "string" and show_id ~= "")
     sleep(-1) -- asks the test to hide and show the host
     minigame.update()
     check_equal("on_hide fired", hides, 1)

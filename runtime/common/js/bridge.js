@@ -102,6 +102,11 @@ function createBridge(runtime, details = {}) {
   const subscriptions = new Map(); // id → { target, event, handler }
   const handles = new Map(); // handle → host object
   let dropped = 0;
+  // Every Lua state that finds the bridge is a client of its own. Defold runs
+  // game object scripts and GUI scripts in separate Lua states unless
+  // script.shared_state is set, and each state polls for itself, so a client
+  // names its ids "<client>:<n>" and a poll returns only that client's events.
+  let nextClient = 1;
   let shareContent = null;
   let shareBound = false;
 
@@ -185,9 +190,18 @@ function createBridge(runtime, details = {}) {
       return ok(handshake());
     },
 
-    poll() {
+    poll(command) {
       if (queue.length === 0) return "";
-      return queue.splice(0, queue.length);
+      const client = command && command.client != null ? `${command.client}:` : null;
+      // A module from before clients existed is the only one polling: it gets everything.
+      if (client === null) return queue.splice(0, queue.length);
+      const mine = [];
+      const others = [];
+      for (const event of queue) (String(event.id).startsWith(client) ? mine : others).push(event);
+      if (mine.length === 0) return "";
+      queue.length = 0;
+      for (const event of others) queue.push(event);
+      return mine;
     },
 
     has(command) {
@@ -370,7 +384,12 @@ function createBridge(runtime, details = {}) {
    * @returns {string}
    */
   function run(code) {
-    if (code === HANDSHAKE_EXPRESSION) return JSON.stringify(handshake());
+    if (code === HANDSHAKE_EXPRESSION) {
+      const reply = handshake();
+      reply.client = `c${nextClient}`;
+      nextClient += 1;
+      return JSON.stringify(reply);
+    }
     if (typeof code !== "string" || code.charCodeAt(0) !== 123 /* { */) {
       throw new Error(
         "html5.run() cannot evaluate JavaScript in a mini game because the host disables eval(); "

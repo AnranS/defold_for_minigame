@@ -72,6 +72,9 @@ test("serves the pages, the stylesheet, and folders with their slash", async (t)
   const css = await get(server.port, "/assets/site.css");
   assert.equal(css.status, 200);
   assert.equal(css.headers["content-type"], "text/css; charset=utf-8");
+  const screenshot = await get(server.port, "/screenshots/apitest-wechat-devtools-1.png");
+  assert.equal(screenshot.status, 200);
+  assert.equal(screenshot.headers["content-type"], "image/png");
 
   // Relative links only work from a folder address.
   const folder = await get(server.port, "/guide");

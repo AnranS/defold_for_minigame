@@ -1,6 +1,6 @@
 # Quick start
 
-Four steps take a Defold project to a mini-game project a developer tool can open. One thing first: the exporter has passed automated and simulated-host tests only. It has not run in a developer tool or on a device yet, so step 4 may well turn up something worth reporting.
+Four steps take a Defold project to a mini-game project a developer tool can open. One thing first: the real engine has run in the WeChat DevTools simulator, and nowhere else yet. The Douyin and TikTok tools and every real device are unverified, so step 4 may well turn up something worth reporting.
 
 ## What you need
 
@@ -62,7 +62,7 @@ Skip this if you only want the game to run. Login, sharing, ads, and the other p
    https://github.com/AnranS/defold_for_minigame/archive/refs/heads/main.zip
    ```
 
-2. Add `/minigame/minigame.go` to your bootstrap collection. It delivers asynchronous results and host events every frame.
+2. Add `/minigame/minigame.go` to your bootstrap collection. It delivers asynchronous results and host events every frame. A GUI script that uses `gui.*` in its callbacks also calls `minigame.update()` in its own `update()`.
 3. Use it in a script:
 
    ```lua
@@ -122,11 +122,12 @@ A failed start shows a dialog with the error, and the console lines that begin w
 | `instantiating engine/dmengine.wasm.br` | The host does not support a WebAssembly feature the engine uses, or its base library is too old |
 | `the engine glue is loaded; waiting for the runtime` | Engine initialisation did not finish; read the error after this line |
 | No `[DefoldMiniGame]` line at all | `game.js` did not run; check the App ID and that the project type is "mini game" |
+| `archive file … is N bytes in the package, but the export recorded M` | The developer tool is running old files next to new ones; compile again or clear its compile cache |
 
 A report is easiest to act on when it includes the console log and the lines the export printed.
 
 ## Next
 
 - [Usage guide](USAGE.md): every option, the platform differences, saves, audio, keyboard, package size.
-- [Lua SDK reference](API.md): the 44 functions.
+- [Lua SDK reference](API.md): the 45 functions.
 - [Architecture](ARCHITECTURE.md): how the exporter and the runtime work.

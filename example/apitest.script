@@ -1,0 +1,42 @@
+-- The game object half of the API test app. A GUI script cannot play a sound
+-- component, and it runs in a different Lua state from game object scripts,
+-- so two tests are answered from here: the engine's own sound, and an SDK
+-- call made from this Lua state while the GUI's state is using the SDK too.
+
+local minigame = require "minigame.minigame"
+
+local function answer(sender, id, status, detail)
+    msg.post(sender, "driver_result", { id = id, status = status, detail = detail })
+end
+
+function on_message(self, message_id, message, sender)
+    if message_id == hash("play_tone") then
+        sound.play("#tone", { gain = message.gain or 1 }, function(_, done_id)
+            if done_id == hash("sound_done") then
+                answer(sender, message.id, "pass", "the engine mixer played the sound to its end")
+            else
+                answer(sender, message.id, "fail", "the sound was stopped before its end")
+            end
+        end)
+    elseif message_id == hash("sdk_from_game_object") then
+        if not minigame.is_available() then
+            answer(sender, message.id, "fail", "no bridge in the game object Lua state")
+            return
+        end
+        -- /minigame/minigame.go polls for this Lua state; the GUI polls for its own.
+        local client = tostring(minigame.info().client)
+        local arrangement = client == message.gui_client
+            and "one Lua state shared with the GUI"
+            or ("its own Lua state (bridge client " .. client .. ", the GUI is " .. tostring(message.gui_client) .. ")")
+        local accepted = minigame.call("getSystemInfo", {}, function(result, err)
+            if err then
+                answer(sender, message.id, "fail", err)
+            else
+                answer(sender, message.id, "pass", "a game object script got its own answer in " .. arrangement)
+            end
+        end)
+        if not accepted then
+            answer(sender, message.id, "skip", "the host has no getSystemInfo")
+        end
+    end
+end

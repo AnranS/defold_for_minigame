@@ -111,13 +111,14 @@ test("the bridge figure shows the protocol the bridge and the Lua module speak",
   const bridge = read("runtime/common/js/bridge.js");
   const lua = read("minigame/minigame.lua");
   // The operations and the event fields drawn in the figure exist in the code.
-  assert.ok(/\bcall\(command\)/.test(bridge) && /\bpoll\(\)/.test(bridge));
+  assert.ok(/\bcall\(command\)/.test(bridge) && /\bpoll\(command\)/.test(bridge), "the bridge has the call and poll operations");
   assert.ok(bridge.includes("push({ id, ok: true, data: toWire(res) })"));
   assert.ok(lua.includes('request({ op = "call", api = api, args = args or {}, id = id })'));
-  assert.ok(lua.includes('send({ op = "poll" })'));
+  assert.ok(lua.includes('send({ op = "poll", client = state.client })'));
+  assert.ok(bridge.includes("reply.client = `c${nextClient}`"), "the bridge names its clients c1, c2, ...");
   for (const lang of LANGUAGES) {
     const figure = figures.find((entry) => entry.name === "bridge" && entry.lang === lang).svg;
-    for (const label of ["&quot;op&quot;:&quot;call&quot;", "&quot;op&quot;:&quot;poll&quot;", "&quot;ok&quot;:true", "wx.login({ success, fail })", "callback(code, nil)"]) {
+    for (const label of ["&quot;op&quot;:&quot;call&quot;", "&quot;id&quot;:&quot;c1:1&quot;", "&quot;op&quot;:&quot;poll&quot;,&quot;client&quot;:&quot;c1&quot;", "&quot;ok&quot;:true", "wx.login({ success, fail })", "callback(code, nil)"]) {
       assert.ok(figure.includes(label), `bridge-${lang}: ${label}`);
     }
   }

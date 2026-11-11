@@ -464,8 +464,8 @@ function bridge(lang) {
   const messages = [
     {
       from: 0, to: 1,
-      label: `html5.run('{"op":"call","api":"login","id":1}')`,
-      caption: zh ? "minigame.login(callback) 发出一条命令" : "minigame.login(callback) sends a command",
+      label: `{"op":"call","api":"login","id":"c1:1"}`,
+      caption: zh ? "minigame.login(callback) 经 html5.run() 发出命令" : "minigame.login(callback), sent with html5.run()",
     },
     {
       from: 1, to: 2,
@@ -479,12 +479,12 @@ function bridge(lang) {
     },
     {
       from: 0, to: 1,
-      label: `html5.run('{"op":"poll"}')`,
-      caption: zh ? "minigame.update() 每帧取一次队列" : "minigame.update() drains the queue once per frame",
+      label: `{"op":"poll","client":"c1"}`,
+      caption: zh ? "minigame.update() 每帧取一次自己的结果" : "minigame.update() asks for its results every frame",
     },
     {
       from: 1, to: 0, reply: true,
-      label: `[{"id":1,"ok":true,"data":{"code":"…"}}]`,
+      label: `[{"id":"c1:1","ok":true,"data":{"code":"…"}}]`,
       caption: zh ? "你的回调收到 callback(code, nil)" : "your callback receives callback(code, nil)",
     },
   ];
@@ -526,8 +526,8 @@ function bridge(lang) {
   return frame(1200, lifeEnd + 76,
     zh ? "一次 SDK 调用怎样穿过 Lua 桥" : "One SDK call across the Lua bridge",
     zh
-      ? "第一步，minigame.login 通过 html5.run 把一条 JSON 命令交给桥。第二步，桥调用宿主的 wx.login。第三步，宿主的成功回调把结果放进队列。第四步，minigame.update 每帧用 poll 命令取一次队列。第五步，你的回调收到登录凭证。"
-      : "Step 1: minigame.login hands a JSON command to the bridge through html5.run. Step 2: the bridge calls the host's wx.login. Step 3: the host's success callback puts the result in a queue. Step 4: minigame.update drains the queue with a poll command once per frame. Step 5: your callback receives the login code.",
+      ? "第一步，minigame.login 通过 html5.run 把一条 JSON 命令交给桥，命令的编号带着这个 Lua 环境的名字。第二步，桥调用宿主的 wx.login。第三步，宿主的成功回调把结果放进队列。第四步，minigame.update 每帧用 poll 命令取一次属于自己的结果。第五步，你的回调收到登录凭证。"
+      : "Step 1: minigame.login hands a JSON command to the bridge through html5.run; its id carries the name of this Lua state. Step 2: the bridge calls the host's wx.login. Step 3: the host's success callback puts the result in a queue. Step 4: minigame.update asks for its own results with a poll command once per frame. Step 5: your callback receives the login code.",
     body);
 }
 

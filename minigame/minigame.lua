@@ -25,12 +25,22 @@ local HANDSHAKE = "typeof DefoldMiniGameBridge==='object'?DefoldMiniGameBridge.h
 local BRAND = "defold-mini-game-bridge"
 local NOT_AVAILABLE = "not running in a mini game"
 
+-- Every Lua state that loads this module is a client of its own. Defold runs
+-- game object scripts and GUI scripts in separate Lua states unless
+-- script.shared_state is set, and each state polls the bridge for itself, so
+-- ids and object handles carry the client's name and update() asks only for
+-- this client's results.
 local state = {
     initialized = false,
     ready = false,
     info = nil,
+    client = nil,
     next_id = 0,
     next_handle = 0,
+    owners = {},        -- id -> the script that registered the callback
+    pollers = {},       -- script -> the tick of its last update()
+    tick = 0,
+    backlog = {},       -- events waiting for the script that owns them
     pending = {},       -- id -> one-shot callback
     listeners = {},     -- id -> persistent handler
     share_bound = false,
@@ -38,16 +48,29 @@ local state = {
 
 local function new_id()
     state.next_id = state.next_id + 1
-    return state.next_id
+    return state.client .. ":" .. state.next_id
 end
 
+local function new_handle()
+    state.next_handle = state.next_handle + 1
+    return state.client .. ":h" .. state.next_handle
+end
+
+local send
+
+--- Warnings go to the host's console once the bridge is there: a release
+-- build of the engine drops print(), and that is the build players get.
 local function warn(message)
-    print("[minigame] " .. tostring(message))
+    message = "[minigame] " .. tostring(message)
+    if state.ready and send({ op = "log", level = "warn", message = message }) then
+        return
+    end
+    print(message)
 end
 
 --- Sends one bridge command and returns the decoded reply.
 -- @return reply table, or nil and an error string
-local function send(command)
+send = function(command)
     local ok, reply = pcall(html5.run, json.encode(command))
     if not ok then
         return nil, tostring(reply)
@@ -84,6 +107,30 @@ local function safe_call(fn, ...)
     end
 end
 
+--- Names the script that is running, or returns nil outside the engine.
+local function running_script()
+    if type(msg) ~= "table" or type(msg.url) ~= "function" then
+        return nil
+    end
+    local ok, url = pcall(msg.url)
+    if ok and url ~= nil then
+        return tostring(url)
+    end
+    return nil
+end
+
+--- How many update() calls by other scripts a script may miss before its
+-- results are handed to whoever polls. A script that was deleted never polls
+-- again; a script whose collection is only paused will.
+local ABANDONED_AFTER = 240
+
+--- Remembers which script registered a callback. Results are delivered by
+-- update(), and gui.*, go.*, and msg.post(".") act on the script that is
+-- running, so a result has to be delivered while its own script runs.
+local function own(id)
+    state.owners[id] = running_script()
+end
+
 --- Finds the bridge. Called lazily by every function; calling it yourself is optional.
 -- @return true when the game runs in a supported mini-game host
 function M.init()
@@ -108,6 +155,9 @@ function M.init()
         return false
     end
     state.info = info
+    -- The bridge names each client. A runtime from before it did so is told
+    -- apart by the address of a table that belongs to this Lua state.
+    state.client = tostring(info.client or tostring({}):match("0x(%x+)") or os.time())
     state.ready = true
     return true
 end
@@ -149,33 +199,70 @@ function M.has(api)
 end
 
 --- Delivers queued results and host events. Call once per frame.
--- /minigame/minigame.go does this for you.
+-- /minigame/minigame.go does this for you. A callback runs in the script that
+-- calls update(): a script that calls it gets its own results and no other
+-- script's, and a script that never calls it is served by one that does.
+-- So a GUI script whose callbacks use gui.* calls update() in its own update().
 function M.update()
     if not state.ready then
         return
     end
-    local events = send({ op = "poll" })
-    if type(events) ~= "table" then
+    local me = running_script()
+    state.tick = state.tick + 1
+    if me then
+        state.pollers[me] = state.tick
+    end
+
+    local events = send({ op = "poll", client = state.client })
+    local backlog = state.backlog
+    if type(events) == "table" then
+        for index = 1, #events do
+            backlog[#backlog + 1] = events[index]
+        end
+    end
+    if #backlog == 0 then
         return
     end
-    for index = 1, #events do
-        local event = events[index]
+
+    local waiting = {}
+    state.backlog = waiting
+    for index = 1, #backlog do
+        local event = backlog[index]
         local id = event.id
-        local once = state.pending[id]
-        if once then
-            state.pending[id] = nil
-            if event.ok then
-                safe_call(once, event.data or {}, nil)
-            else
-                safe_call(once, nil, tostring(event.error or "failed"))
-            end
+        local owner = state.owners[id]
+        local last_poll = owner and state.pollers[owner]
+        if owner and owner ~= me and last_poll and state.tick - last_poll <= ABANDONED_AFTER then
+            -- Its own script polls; the result waits for it.
+            waiting[#waiting + 1] = event
         else
-            local listener = state.listeners[id]
-            if listener then
-                safe_call(listener, event.data or {})
+            local once = state.pending[id]
+            if once then
+                state.pending[id] = nil
+                state.owners[id] = nil
+                if event.ok then
+                    safe_call(once, event.data or {}, nil)
+                else
+                    safe_call(once, nil, tostring(event.error or "failed"))
+                end
+            else
+                local listener = state.listeners[id]
+                if listener then
+                    safe_call(listener, event.data or {})
+                end
             end
         end
     end
+end
+
+--- Writes a line to the host's console. print() is dropped by a release build of the engine; this is not.
+-- @param level "info" (the default), "warn", or "error"
+-- @return true when the line was written, false outside a mini game
+function M.log(message, level)
+    if not M.init() then
+        return false
+    end
+    local _, err = request({ op = "log", level = level or "info", message = tostring(message) })
+    return err == nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -199,6 +286,7 @@ function M.call(api, args, callback)
     end
     if callback then
         state.pending[id] = callback
+        own(id)
     end
     return true
 end
@@ -228,6 +316,7 @@ function M.on(event, handler)
         return nil, err
     end
     state.listeners[id] = handler
+    own(id)
     return id, nil
 end
 
@@ -237,6 +326,7 @@ function M.off(id)
         return
     end
     state.listeners[id] = nil
+    state.owners[id] = nil
     if state.ready then
         request({ op = "off", id = id })
     end
@@ -264,6 +354,7 @@ function Object:invoke(method, args, callback)
     if callback then
         if reply.async then
             state.pending[id] = callback
+            own(id)
         else
             safe_call(callback, reply.data or {}, nil)
         end
@@ -282,6 +373,7 @@ function Object:on(event, handler)
         return nil, err
     end
     state.listeners[id] = handler
+    own(id)
     self.subscriptions[#self.subscriptions + 1] = id
     return id, nil
 end
@@ -315,6 +407,7 @@ function Object:destroy()
     self.destroyed = true
     for index = 1, #self.subscriptions do
         state.listeners[self.subscriptions[index]] = nil
+        state.owners[self.subscriptions[index]] = nil
     end
     self.subscriptions = {}
     request({ op = "release", handle = self.handle })
@@ -326,8 +419,7 @@ function M.create(api, args)
     if not M.init() then
         return nil, NOT_AVAILABLE
     end
-    state.next_handle = state.next_handle + 1
-    local handle = state.next_handle
+    local handle = new_handle()
     local _, err = request({ op = "new", api = api, args = args, handle = handle })
     if err then
         return nil, err
@@ -683,8 +775,7 @@ function M.load_subpackage(name, callback, progress)
         safe_call(callback, false, NOT_AVAILABLE)
         return
     end
-    state.next_handle = state.next_handle + 1
-    local handle = state.next_handle
+    local handle = new_handle()
     local id = new_id()
     local _, err = request({ op = "call", api = "loadSubpackage", args = { name = name }, id = id, handle = handle })
     if err then
@@ -701,6 +792,7 @@ function M.load_subpackage(name, callback, progress)
         task:destroy()
         safe_call(callback, load_err == nil, load_err)
     end
+    own(id)
 end
 
 return M

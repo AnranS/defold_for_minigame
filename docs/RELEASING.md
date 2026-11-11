@@ -49,12 +49,52 @@ version for this release:
 | Level | How it is earned |
 |---|---|
 | `staticContract`, `wasmFeatureScan` | `scripts/verify_engine.mjs` passes |
-| `simulatedHost` | a real bundle built by that Defold version boots in the simulated hosts. There is no harness for this yet: the simulated hosts have no WebGL, so only the engine stand-in runs in them today |
-| `devtool` | the export runs in the WeChat and Douyin developer tools and under `ttmg dev` |
-| `realDevice` | the export runs on an iOS and an Android phone |
+| `devtool.<platform>` | a bundle built by that Defold version runs in that platform's developer tool: WeChat DevTools, Douyin DevTools, `ttmg dev` |
+| `realDevice.<platform>` | the export runs on an iOS and an Android phone in that platform's app |
 
-Platform `supportTier` moves from `experimental` only after `devtool` and
-`realDevice` are verified for that platform.
+Every `verified` developer-tool level needs an entry under `hostRuns` with the
+date, the tool and its version, the Defold version and engine SHA1, what was
+run, and the result, in English and in Chinese. `test/support_matrix.test.mjs`
+fails when a claim has no record or a record has no claim. A platform's
+`devtoolCompile` is `verified` once any run in its tool is recorded, and its
+`supportTier` moves from `experimental` only after `devtoolCompile` and
+`realDevice` are both verified.
+
+### Running in WeChat DevTools
+
+The API test app in the repository root is the release check. Build it with the
+`bob.jar` of the Defold version under test, export it, and let it run every
+unattended test:
+
+```bash
+node bin/defold-minigame.mjs build --project . --bob <bob.jar> --java <java> \
+  --platform wechat --appid <app id> --assets example/assets --output <project>
+node scripts/devtools_probe.mjs inject --project <project> --label apitest \
+  --storage apitest.autorun=1 --capture 30000 --finish 32000
+# open <project> in WeChat DevTools and wait for the run to finish, then:
+node scripts/devtools_probe.mjs collect --label apitest --out <evidence folder> \
+  --storage "<DevTools profile>/WeappSimulator/WeappFileSystem/<user>/<app id>/usr"
+node scripts/devtools_probe.mjs remove --project <project>
+```
+
+The collected console log must end with `[apitest] done pass=<n> fail=0`, and
+the collected frames must show the list. Things to know:
+
+- A project path the tool has not seen opens in tourist mode, where
+  subpackages do not load. Use a real App ID and a path the tool knows.
+- Export into a project that is closed in the tool, or compile again
+  afterwards. A project that is open while its files change can start on a mix
+  of old and new files; the loader then stops with an archive size mismatch.
+- The simulator runs at about one frame per second while the tool's window is
+  in the background. Give a run more time, or keep the window in front.
+- The probe is silent by default. `--audible` lets the sound through.
+- `bob.jar` needs the JDK named in the Defold manual: OpenJDK 25 for 1.14.
+
+Without Defold installed, `node scripts/fetch_example_bundle.mjs --example
+sprite/flip --out <folder>` assembles a real HTML5 bundle from one of the
+examples on defold.com. Those examples are built with whatever Defold the site
+was last built with, which may be a pre-release; a run with one is recorded
+under `hostRuns` with its channel and does not verify a released version.
 
 ## 3. Certify a new Defold version
 

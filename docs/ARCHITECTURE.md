@@ -159,6 +159,18 @@ minigame.lua ── html5.run(json) ──▶ bridge.run ──▶ PlatformRunti
   `off`, `new`, `invoke`, `listen`, `get`, `set`, `release`, `share`, `has`,
   `poll`, `log`. Any other string raises a Lua error that says why.
 - Asynchronous results are queued and drained by `minigame.update()`.
+- Results find their owner twice over. The bridge names every Lua state that
+  performs the handshake (`c1`, `c2`, …); ids and object handles carry that
+  name, and a poll returns only that client's events. That covers projects
+  whose game object scripts and GUI scripts run in separate Lua states. Inside
+  one Lua state, which is what Defold 1.14.1 gives a project by default, the
+  module records the script that registered each callback (`msg.url()`), and
+  `update()` delivers a result only while its own script is the one polling.
+  A script that never polls is served by one that does. Without this a GUI
+  callback delivered by a game object script fails with "Node used in the
+  wrong scene"; the first run in WeChat DevTools found exactly that.
+- `log` writes to the host's console. A release build of the engine drops
+  `print()`, so `minigame.log()` and the module's own warnings go through it.
 - The bridge ABI is versioned (`bridgeAbi` in `support-matrix.json`). The Lua
   module refuses to talk to a runtime with a different ABI.
 - A per-platform block list keeps Lua away from host calls that can terminate
@@ -201,11 +213,13 @@ crash-atomic primitive. A killed process can leave a `.lock`, `.staging-*`, or
 | Runtime schema (`runtimeSchema`) | `js/boot_config.js` changes meaning | the loader and the exporter ship together |
 | Output manifest schema | ownership metadata changes | only a recognised manifest owns a folder |
 
-Defold compatibility is data in `support-matrix.json`, with a validation level
-per engine version: `staticContract`, `wasmFeatureScan`, `simulatedHost`,
-`devtool`, `realDevice`. A level is `verified` only when that check was
-actually run on that version. An automated simulated-host pass is never
-presented as developer-tool or device certification.
+Defold compatibility is data in `support-matrix.json`, with validation levels
+per engine version: `staticContract`, `wasmFeatureScan`, and, kept per
+platform, `devtool` and `realDevice`. A level is `verified` only when that
+check was actually run on that version, and every `verified` developer-tool
+level has a record under `hostRuns` that says what ran, where, and with what
+result. An automated simulated-host pass is never presented as developer-tool
+or device certification.
 
 ## What the simulated hosts do and do not prove / 模拟宿主能证明什么
 
@@ -228,3 +242,35 @@ in a real host.
 模拟宿主里的引擎是替身，`dmloader.js` 是 Defold 的真实文件。这些测试能证明导出器、
 适配层、加载器、存档和桥与真实加载器及宿主文档的约定一致，不能证明真实引擎在真实
 宿主里能渲染、出声或达到性能要求。
+
+## Runs in a developer tool / 开发者工具里的运行
+
+The stand-in has to be told what the real engine does, and the first run of a
+real engine told it two things it did not know:
+
+- The engine sizes its canvas on its first buffer swap, through Emscripten's
+  `Browser.updateCanvasDimensions()`, which calls `canvas.style.setProperty()`
+  and `removeProperty()`. The adapter's style objects had neither.
+- WeChat DevTools reports the system of the device it simulates ("iOS 10.0.1"
+  for an iPhone 12) while the game runs in the tool's own Chromium. Turned
+  into a user agent, that sent the engine to WebGL 1, for which a Defold
+  1.14.1+ bundle has no shaders. A host that reports `platform: "devtools"`
+  now gets a user agent without a system version.
+
+Both are fixed, the stand-in now runs Emscripten's canvas-sizing code
+statement for statement, and tests reproduce both failures.
+
+A mini game's console cannot be read from outside the developer tool, so
+`scripts/devtools_probe.mjs` injects a test-only module into an exported
+project. It mirrors the console to a file in the game's user data folder,
+which the simulator keeps on disk; copies the frame buffer after chosen
+frames; replays touches through the handlers the adapter registered; and
+counts the audio blocks the engine hands to the host. A probed run is silent
+unless asked otherwise.
+
+真实引擎第一次运行暴露了替身不知道的两件事：引擎在第一次交换缓冲时通过
+`canvas.style.setProperty()` 调整画布尺寸；微信开发者工具上报的是它所模拟机型的
+系统版本，引擎因此退回 WebGL 1。两处都已修复，替身现在逐句执行 Emscripten 调整
+画布的代码，测试能复现这两个失败。小游戏的控制台无法从开发者工具外部读取，所以
+`scripts/devtools_probe.mjs` 往导出工程里注入一个仅供测试的模块：把控制台镜像到
+用户数据目录、在指定帧之后复制帧缓冲、回放触摸、统计引擎提交的音频块，默认静音。

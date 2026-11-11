@@ -3,7 +3,7 @@
 This guide covers every exporter option, the differences between the three platforms, and the runtime behaviour of saves, audio, input, display, network, and package size. If this is your first export, start with the [quick start](QUICK_START.md).
 
 > [!WARNING]
-> v0.1.0 is experimental. The runtime behaviour described here comes from the code and from simulated-host tests; none of it has been verified in a developer tool or on a device. Test the entries marked "untested" yourself in particular.
+> v0.1.0 is experimental. Start-up, rendering, touch, saves, sound, and the Lua SDK have run with the real engine in the WeChat DevTools simulator. Everything else described here comes from the code and from simulated-host tests, and nothing has run on a device or in the Douyin and TikTok tools. Test the entries marked "untested" yourself in particular.
 
 ## 1. Requirements
 
@@ -137,12 +137,23 @@ Two things are different on TikTok, both learned from device tests in [godot_for
 ### Setup
 
 1. Add this repository as a library dependency (Dependencies in `game.project`) and run **Project > Fetch Libraries**.
-2. Put `/minigame/minigame.go` into the bootstrap collection. It finds the bridge in `init` and delivers asynchronous results in `update`. If you would rather not add it, call `minigame.update()` once per frame from one of your scripts.
+2. Put `/minigame/minigame.go` into the bootstrap collection. It finds the bridge in `init` and delivers asynchronous results in `update`. If you would rather not add it, call `minigame.update()` once per frame from one of your scripts. A GUI script that uses `gui.*` in its callbacks calls `minigame.update()` in its own `update()` as well; the next section says why.
 3. `local minigame = require "minigame.minigame"`.
 
 ### Callbacks
 
-The first argument is the result, `nil` on failure; the last one is an error string, `nil` on success. Callbacks run in the context of the script that calls `minigame.update()`.
+The first argument is the result, `nil` on failure; the last one is an error string, `nil` on success.
+
+A callback runs in the script that calls `minigame.update()`. That matters because `gui.*`, `go.*` with a relative address, and `msg.post(".")` act on the script that is running:
+
+- A script that calls `minigame.update()` gets the results of its own calls, and no other script's.
+- A script that never calls it is served by a script that does, usually `/minigame/minigame.go`.
+
+So a GUI script whose callbacks touch its nodes calls `minigame.update()` in its own `update()`; without that, the callback fails with "Node used in the wrong scene". A game object script whose callbacks only set values or post messages to absolute addresses needs nothing beyond `minigame.go`.
+
+### Logging
+
+A release build of the engine drops `print()`. `minigame.log(message, level)` writes to the host's console in every build; `level` is `"info"`, `"warn"`, or `"error"`. The module's own warnings, such as a callback that raised an error, go there too.
 
 ### Common features
 
@@ -323,12 +334,14 @@ Exporting into the same folder again is safe.
 
 | Feature | Status |
 |---|---|
-| 2D rendering, GUI, particles, tile maps, physics | engine features, untested |
-| Touch, multi-touch | passes simulated-host tests |
-| `sys.save` / `sys.load` / `io.*` | passes simulated-host tests |
+| Sprites, text, GUI | ran in WeChat DevTools |
+| Particles, tile maps, physics, 3D | engine features, untested |
+| Touch | ran in WeChat DevTools; multi-touch passes simulated-host tests |
+| `sys.save` / `sys.load` | ran in WeChat DevTools, across restarts; `io.*` passes simulated-host tests |
 | `http.request` | passes simulated-host tests |
 | `gui.show_keyboard` | passes simulated-host tests; basic |
-| Engine sound | WeChat, Douyin: passes simulated-host tests; TikTok: off by default |
+| Engine sound | WeChat: ran in WeChat DevTools; Douyin: passes simulated-host tests; TikTok: off by default |
+| The `minigame` module | every unattended test of the API test app passes in WeChat DevTools; login, modal, clipboard, sharing, ads, and payment need a tap and were not run |
 | JavaScript through `html5.run` | not supported |
 | WebAssembly threads, SIMD, exceptions | not supported; blocked at export |
 | Native extensions with JavaScript libraries | untested |
@@ -344,7 +357,7 @@ This is not hypothetical: Defold 1.14.1 rewrote the loader's start-up flow. Up t
 
 | Defold | Loader design | Status |
 |---|---|---|
-| 1.14.1 | session (`GameStartup`) | static check passes; covered by simulated-host tests |
+| 1.14.1 | session (`GameStartup`) | static check passes; covered by simulated-host tests; ran in WeChat DevTools |
 | 1.14.0 | legacy (`_preloadAndCallMain`) | static check passes; covered by simulated-host tests |
 
 [`support-matrix.json`](../support-matrix.json) records the checked versions and how far each was validated. A version that is not listed can still be exported; the result carries a warning.
@@ -354,7 +367,10 @@ To check a new Defold version (this only downloads, parses, and compiles; the en
 ```bash
 node scripts/verify_engine.mjs --version 1.14.1                       # current stable; the SHA1 is looked up
 node scripts/verify_engine.mjs --version 1.14.0 --sha1 d295ed4edff2e49072719835713e625f409849f1
+node scripts/verify_engine.mjs --version 1.14.2 --sha1 <sha1> --channel alpha  # a pre-release build
 ```
+
+To try a real engine in a developer tool without installing Defold, `scripts/fetch_example_bundle.mjs` turns one of the examples on defold.com into an HTML5 bundle, and `scripts/devtools_probe.mjs` collects the console log and frames of a run in WeChat DevTools. The [release process](RELEASING.md) describes both.
 
 ## 16. FAQ
 
@@ -378,3 +394,18 @@ Yes. Saves and the game archive are stored separately, and exporting again does 
 
 **Can I export from inside the Defold editor?**
 Not yet. The exporter is a command-line tool.
+
+**The start-up log says an archive file is N bytes in the package, but the export recorded M.**
+The developer tool is running a mix of old and new files; this happens when a project is exported again while it is open. Compile again, or clear the tool's compile cache. The loader compares sizes exactly so that this shows up as a clear message.
+
+**`print()` shows nothing in the console.**
+A release build of the engine drops it. Use `minigame.log()`, or bundle the debug variant while you develop.
+
+**A callback fails with "Node used in the wrong scene".**
+A GUI callback was delivered while another script was running. Call `minigame.update()` in the GUI script's own `update()`; see [section 6](#6-lua-sdk).
+
+**The engine reports "Unable to get a valid shader".**
+The engine chose WebGL 1 and the bundle has no WebGL 1 shaders; see [section 2](#2-building-the-html5-bundle). In a developer tool this should not happen: the adapter ignores the system version of the simulated device.
+
+**The game runs at about one frame per second in the developer tool.**
+The tool's window is in the background or covered; the simulator is throttled there. Bring the window to the front.

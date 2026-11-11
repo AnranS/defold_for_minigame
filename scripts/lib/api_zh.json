@@ -19,7 +19,7 @@
     "info": "启动时桥上报的信息：平台、能力表、系统信息、存档后端、引擎音频是否可用。",
     "has_engine_audio": "引擎自带的 sound 组件在当前宿主上是否有声音。TikTok 默认是 false，这时请用 inner_audio()。",
     "has": "宿主是否实现了指定名称的接口。",
-    "update": "派发排队的异步结果和宿主事件，每帧调用一次。/minigame/minigame.go 已经替你调用。",
+    "update": "派发排队的异步结果和宿主事件，每帧调用一次。/minigame/minigame.go 已经替你调用。回调在调用 update() 的那个脚本里执行：自己调用 update() 的脚本只收到自己的结果，从不调用的脚本由别的脚本代为派发。所以回调里要用 gui.* 的 GUI 脚本，应当在自己的 update() 里调用它。",
     "call": "调用宿主的异步接口（带 success / fail 回调的那类）。callback(result, err)。",
     "call_sync": "用位置参数调用宿主的同步接口，返回宿主的返回值；失败返回 nil 和错误信息。",
     "on": "订阅宿主事件，比如 \"onShow\"。返回订阅 id，用于 off()。",
@@ -56,7 +56,8 @@
     "create_banner_ad": "Banner 广告。style：left、top、width（逻辑像素）。banner:show()、banner:hide()、banner:destroy()。",
     "request_payment": "拉起宿主的支付流程。参数原样透传，各平台不同，见各平台的支付文档。callback(paid, err)。",
     "inner_audio": "为包内文件或 URL 创建宿主音频播放器。options：loop、volume、autoplay。返回带 :play、:pause、:stop、:seek、:set_volume、:set_loop、:on_ended、:destroy 的对象。",
-    "load_subpackage": "加载 game.json 里声明的分包。callback(loaded, err)，progress(percent)。"
+    "load_subpackage": "加载 game.json 里声明的分包。callback(loaded, err)，progress(percent)。",
+    "log": "向宿主的控制台写一行日志。引擎的 release 版会丢弃 print()，这个函数不会。level 取 \"info\"（默认）、\"warn\" 或 \"error\"。不在小游戏里时返回 false。"
   },
   "methods": {
     "invoke": "调用宿主对象的方法。args 是位置参数数组；返回 Promise 的方法通过 callback(result, err) 回报。",

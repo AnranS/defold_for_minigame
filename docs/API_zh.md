@@ -2,7 +2,7 @@
 
 <!-- 本文件由 scripts/generate_api_docs.mjs 根据 minigame/minigame.lua 的注释生成，不要手工修改。 -->
 
-`minigame` 模块共有 44 个函数。回调约定：第一个参数是结果（失败时为 nil），最后一个参数是错误信息（成功时为 nil）。不在小游戏里时，取值函数返回默认值，回调立即收到 `"not running in a mini game"`。
+`minigame` 模块共有 45 个函数。回调约定：第一个参数是结果（失败时为 nil），最后一个参数是错误信息（成功时为 nil）。不在小游戏里时，取值函数返回默认值，回调立即收到 `"not running in a mini game"`。
 
 ```lua
 local minigame = require "minigame.minigame"
@@ -38,7 +38,11 @@ local minigame = require "minigame.minigame"
 
 ### `minigame.update()`
 
-派发排队的异步结果和宿主事件，每帧调用一次。/minigame/minigame.go 已经替你调用。
+派发排队的异步结果和宿主事件，每帧调用一次。/minigame/minigame.go 已经替你调用。回调在调用 update() 的那个脚本里执行：自己调用 update() 的脚本只收到自己的结果，从不调用的脚本由别的脚本代为派发。所以回调里要用 gui.* 的 GUI 脚本，应当在自己的 update() 里调用它。
+
+### `minigame.log(message, level)`
+
+向宿主的控制台写一行日志。引擎的 release 版会丢弃 print()，这个函数不会。level 取 "info"（默认）、"warn" 或 "error"。不在小游戏里时返回 false。
 
 ## 通用访问：宿主提供的任何接口，不论有没有封装
 

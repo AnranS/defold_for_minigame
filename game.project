@@ -1,5 +1,5 @@
 [project]
-title = Defold Mini Game Demo
+title = Defold Mini Game API Tests
 version = 0.1.0
 
 [bootstrap]
@@ -9,9 +9,9 @@ main_collection = /example/main.collectionc
 game_binding = /input/game.input_bindingc
 
 [display]
-width = 640
-height = 1136
-high_dpi = 0
+width = 720
+height = 1280
+high_dpi = 1
 
 [html5]
 heap_size = 128
