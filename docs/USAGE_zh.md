@@ -140,7 +140,12 @@ TikTok 上有两件事和另外两个平台不同，都来自 [godot_for_minigam
 
 ### 接入
 
-1. 把本仓库加为库依赖（`game.project` 的 Dependencies），执行 **Project > Fetch Libraries**。
+1. 把本仓库加为库依赖，执行 **Project > Fetch Libraries**。`game.project` 的 Dependencies 里填发布版本的地址，版本要和导出工具一致：
+
+   ```text
+   https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.0.zip
+   ```
+
 2. 把 `/minigame/minigame.go` 放进启动 collection。它在 `init` 里查找桥，在 `update` 里派发异步结果。不想加这个对象，就在自己的脚本里每帧调用一次 `minigame.update()`。回调里要用 `gui.*` 的 GUI 脚本，还需要在自己的 `update()` 里调用 `minigame.update()`，原因见下一小节。
 3. `local minigame = require "minigame.minigame"`。
 

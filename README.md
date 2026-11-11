@@ -58,7 +58,7 @@ You need Node.js 20 or later and a Defold HTML5 bundle.
 2. **Export**:
 
    ```bash
-   git clone https://github.com/AnranS/defold_for_minigame.git
+   git clone --branch v0.1.0 --depth 1 https://github.com/AnranS/defold_for_minigame.git
    node defold_for_minigame/bin/defold-minigame.mjs export \
      --bundle  path/to/bundle/MyGame \
      --platform wechat \
@@ -68,7 +68,13 @@ You need Node.js 20 or later and a Defold HTML5 bundle.
 
 3. **Run**: open the output folder in the WeChat or Douyin developer tool. For TikTok, run `ttmg init` and `ttmg dev` inside it.
 
-To call platform features, add this repository as a Defold library dependency and put `/minigame/minigame.go` into your bootstrap collection:
+To call platform features, add this repository as a Defold library dependency and put `/minigame/minigame.go` into your bootstrap collection. The library address goes into Dependencies in `game.project`, at the same version as the exporter:
+
+```text
+https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.0.zip
+```
+
+Then, in a script:
 
 ```lua
 local minigame = require "minigame.minigame"

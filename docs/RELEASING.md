@@ -14,6 +14,11 @@ fails when they do not.
 | `package.json` | `version` |
 | `minigame/minigame.lua` | `M.VERSION` |
 
+The install addresses in the READMEs, the quick starts, and the usage guides
+name the tag: `archive/refs/tags/v<version>.zip` for the Defold library and
+`git clone --branch v<version>` for the exporter. Change them in the commit
+that changes the version; the same test fails when one is left behind.
+
 Bump `bridgeAbi` in `support-matrix.json`, `BRIDGE_ABI_VERSION` in
 `runtime/common/js/platform_runtime.js`, and `M.ABI` in `minigame/minigame.lua`
 together whenever the Lua ⇄ JS protocol changes. A game built with the old Lua
@@ -171,11 +176,18 @@ under `hostRuns` with its channel and does not verify a released version.
 ```bash
 git tag v<version>
 git push origin v<version>
+gh release create v<version> --title "v<version>" --notes-file <notes>
 ```
+
+Tag the commit CI passed on. GitHub builds the source archive of a tag by
+itself, and that archive is what a Defold project depends on, so there is no
+package to build. The release notes say what was verified where and what is
+known not to work, as `support-matrix.json` records it.
 
 Pushing to `main` deploys the website through `.github/workflows/deploy-pages.yml`
 once GitHub Pages is enabled for the repository (Settings > Pages > Source:
 GitHub Actions). Until then a push only builds and checks the site; running the
 workflow by hand publishes regardless. The workflow runs `./scripts/test.sh`
 first, because the home page says the automated tests pass. After the tag is public, export one game from a fresh
-clone of the tag and open it in a developer tool.
+clone of the tag and open it in a developer tool, and build a Defold project
+that takes the Lua module from the tag's archive.

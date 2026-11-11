@@ -26,7 +26,7 @@
 ## 2. 导出小游戏工程
 
 ```bash
-git clone https://github.com/AnranS/defold_for_minigame.git
+git clone --branch v0.1.0 --depth 1 https://github.com/AnranS/defold_for_minigame.git
 cd defold_for_minigame
 
 node bin/defold-minigame.mjs export \
@@ -36,6 +36,7 @@ node bin/defold-minigame.mjs export \
   --output   ~/minigame/mygame-wechat
 ```
 
+- `--branch v0.1.0` 取的是已发布的版本。全部版本见 [Releases](https://github.com/AnranS/defold_for_minigame/releases)。
 - `--platform` 取 `wechat`、`douyin` 或 `tiktok`。一次导出只针对一个平台，三个平台要导三次，各用各的输出目录。
 - `--output` 必须是空目录，或者是本工具之前导出过的目录。它不能放在 HTML5 包里面。
 - 音频、图片这类游戏按路径读取的文件，可以加 `--subpackage 名字=目录` 做成分包，不占主包的 4 MB，见[使用指南](USAGE_zh.md#12-包体与分包)。
@@ -60,8 +61,10 @@ Exported MyGame (Defold 1.14.1) for WeChat Mini Game
 1. 在 `game.project` 的 **Dependencies** 里加入本仓库的压缩包地址，然后 **Project > Fetch Libraries**：
 
    ```text
-   https://github.com/AnranS/defold_for_minigame/archive/refs/heads/main.zip
+   https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.0.zip
    ```
+
+   版本号要和第 2 步里导出工具的版本一致：Lua 模块和导出工具写进包里的运行时靠同一套桥接协议通信。想用还没发布的开发版，就把地址里的 `refs/tags/v0.1.0` 换成 `refs/heads/main`，导出工具也改用 `main` 分支。
 
 2. 把 `/minigame/minigame.go` 加进启动 collection。它每帧替你派发异步结果和宿主事件。回调里要用 `gui.*` 的 GUI 脚本，还要在自己的 `update()` 里调用 `minigame.update()`。
 3. 在脚本里使用：

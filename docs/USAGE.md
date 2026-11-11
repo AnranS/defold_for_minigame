@@ -140,7 +140,12 @@ A third comes from this project's own run on an iPhone and an Android phone: Tik
 
 ### Setup
 
-1. Add this repository as a library dependency (Dependencies in `game.project`) and run **Project > Fetch Libraries**.
+1. Add this repository as a library dependency and run **Project > Fetch Libraries**. Dependencies in `game.project` takes the address of a released version, the same version as the exporter:
+
+   ```text
+   https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.0.zip
+   ```
+
 2. Put `/minigame/minigame.go` into the bootstrap collection. It finds the bridge in `init` and delivers asynchronous results in `update`. If you would rather not add it, call `minigame.update()` once per frame from one of your scripts. A GUI script that uses `gui.*` in its callbacks calls `minigame.update()` in its own `update()` as well; the next section says why.
 3. `local minigame = require "minigame.minigame"`.
 

@@ -87,6 +87,33 @@ test("every platform has a contract, a runtime entry, and the same values in the
   }
 });
 
+test("the documents install the released version, not whatever main holds", () => {
+  // The Lua module and the runtime an export writes speak one bridge ABI, so
+  // both come from the same tag. A version bump has to move these addresses.
+  const tag = `v${matrix.toolVersion}`;
+  const repository = pkg.repository.url.replace(/\.git$/, "");
+  const library = `${repository}/archive/refs/tags/${tag}.zip`;
+  const clone = `git clone --branch ${tag} --depth 1 ${repository}.git`;
+
+  for (const file of [...READMES, "docs/QUICK_START.md", "docs/QUICK_START_zh.md", "docs/USAGE.md", "docs/USAGE_zh.md"]) {
+    assert.ok(read(file).includes(library), `${file} does not give the library address of ${tag}`);
+  }
+  for (const file of [...READMES, "docs/QUICK_START.md", "docs/QUICK_START_zh.md"]) {
+    assert.ok(read(file).includes(clone), `${file} does not clone ${tag}`);
+  }
+  for (const file of DOCUMENTS) {
+    const text = read(file);
+    for (const match of text.matchAll(/archive\/refs\/tags\/(v[0-9.]+)\.zip|git clone --branch (v[0-9.]+)/g)) {
+      assert.equal(match[1] || match[2], tag, `${file} names another version: ${match[0]}`);
+    }
+    // The moving address is only ever offered beside the pinned one.
+    if (text.includes("refs/heads/main")) assert.ok(text.includes(library), `${file} offers main without the released version`);
+    for (const line of text.split("\n")) {
+      if (/git clone(?! --branch)/.test(line) && line.includes(repository)) assert.fail(`${file} clones without a version: ${line.trim()}`);
+    }
+  }
+});
+
 test("validation levels use the agreed words, and a tier is not ahead of its evidence", () => {
   for (const [name, contract] of Object.entries(matrix.platformContracts)) {
     assert.deepEqual(Object.keys(contract.validation).sort(), ["devtoolCompile", "exportSmoke", "realDevice", "simulatedHost"], name);

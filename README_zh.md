@@ -58,7 +58,7 @@ Defold 的 HTML5 包是给浏览器用的：`dmloader.js` 操作 DOM、用 XHR �
 2. **导出**：
 
    ```bash
-   git clone https://github.com/AnranS/defold_for_minigame.git
+   git clone --branch v0.1.0 --depth 1 https://github.com/AnranS/defold_for_minigame.git
    node defold_for_minigame/bin/defold-minigame.mjs export \
      --bundle  path/to/bundle/MyGame \
      --platform wechat \
@@ -68,7 +68,13 @@ Defold 的 HTML5 包是给浏览器用的：`dmloader.js` 操作 DOM、用 XHR �
 
 3. **运行**：用微信或抖音开发者工具打开输出目录。TikTok 在输出目录里执行 `ttmg init` 和 `ttmg dev`。
 
-要调用平台能力，把本仓库加为 Defold 库依赖，再把 `/minigame/minigame.go` 放进启动 collection：
+要调用平台能力，把本仓库加为 Defold 库依赖，再把 `/minigame/minigame.go` 放进启动 collection。库依赖的地址填在 `game.project` 的 Dependencies 里，和导出工具用同一个版本：
+
+```text
+https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.0.zip
+```
+
+然后在脚本里：
 
 ```lua
 local minigame = require "minigame.minigame"
