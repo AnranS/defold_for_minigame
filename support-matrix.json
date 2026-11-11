@@ -26,7 +26,7 @@
         "exportSmoke": "automated",
         "simulatedHost": "automated",
         "devtoolCompile": "verified",
-        "realDevice": "not-run"
+        "realDevice": "verified"
       }
     },
     "douyin": {
@@ -49,7 +49,7 @@
         "exportSmoke": "automated",
         "simulatedHost": "automated",
         "devtoolCompile": "verified",
-        "realDevice": "not-run"
+        "realDevice": "verified"
       }
     },
     "tiktok": {
@@ -137,8 +137,8 @@
           "tiktok": "verified"
         },
         "realDevice": {
-          "wechat": "not-run",
-          "douyin": "not-run",
+          "wechat": "verified",
+          "douyin": "verified",
           "tiktok": "verified"
         }
       }
@@ -171,6 +171,34 @@
     },
     {
       "date": "2026-11-11",
+      "platform": "wechat",
+      "host": "WeChat app on an iPhone and on an Android phone",
+      "devices": [
+        "iOS",
+        "Android"
+      ],
+      "defoldVersion": "1.14.1",
+      "engineSha1": "ee283d4dad9fa451dd6399d83602e1dc25133681",
+      "channel": "stable",
+      "bundle": "the API test app in this repository, built with bob.jar",
+      "checks": [
+        "start-up",
+        "rendering",
+        "touch",
+        "saves",
+        "engine sound",
+        "host audio",
+        "Lua SDK",
+        "subpackages"
+      ],
+      "result": "run by hand by the maintainer, without the probe: on both phones every unattended test passed. Phone models, system versions and the WeChat version were not recorded",
+      "zh": {
+        "bundle": "本仓库的 API 功能测试应用，用 bob.jar 构建",
+        "result": "维护者手动运行，没有用探针：两台手机上自动测试全部通过。机型、系统版本和微信版本没有记录"
+      }
+    },
+    {
+      "date": "2026-11-11",
       "platform": "douyin",
       "host": "Douyin DevTools 4.5.7, simulator, mini-game core 4.33.0.1",
       "defoldVersion": "1.14.1",
@@ -191,6 +219,34 @@
       "zh": {
         "bundle": "本仓库的 API 功能测试应用，用 bob.jar 构建",
         "result": "41 项自动测试全部通过，其中包括加载游戏自己的分包、读取分包里的文件、播放分包里的声音；工具发出的点击和滑动能点到按钮，sys.save 记的启动次数在重启后还在；另外 15 项需要人点一下或会离开游戏，没有运行"
+      }
+    },
+    {
+      "date": "2026-11-11",
+      "platform": "douyin",
+      "host": "Douyin app on an iPhone and on an Android phone",
+      "devices": [
+        "iOS",
+        "Android"
+      ],
+      "defoldVersion": "1.14.1",
+      "engineSha1": "ee283d4dad9fa451dd6399d83602e1dc25133681",
+      "channel": "stable",
+      "bundle": "the API test app in this repository, built with bob.jar",
+      "checks": [
+        "start-up",
+        "rendering",
+        "touch",
+        "saves",
+        "engine sound",
+        "host audio",
+        "Lua SDK",
+        "subpackages"
+      ],
+      "result": "run by hand by the maintainer, without the probe: on both phones every unattended test passed. Phone models, system versions and the Douyin version were not recorded",
+      "zh": {
+        "bundle": "本仓库的 API 功能测试应用，用 bob.jar 构建",
+        "result": "维护者手动运行，没有用探针：两台手机上自动测试全部通过。机型、系统版本和抖音版本没有记录"
       }
     },
     {

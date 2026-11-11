@@ -1,6 +1,6 @@
 # Quick start
 
-Four steps take a Defold project to a mini-game project a developer tool can open. One thing first: the real engine has run in three places, the WeChat DevTools and Douyin DevTools simulators and TikTok through `ttmg dev` on an iPhone and an Android phone. WeChat and Douyin are unverified on a real device, so step 4 may turn up something worth reporting there.
+Four steps take a Defold project to a mini-game project a developer tool can open. One thing first: the real engine has run on all three platforms, in the WeChat DevTools and Douyin DevTools simulators and on an iPhone and an Android phone in WeChat, Douyin, and TikTok. What ran is the test app in this repository; if your own game turns up something in step 4, it is worth reporting.
 
 ## What you need
 

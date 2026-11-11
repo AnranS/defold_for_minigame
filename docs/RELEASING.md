@@ -155,6 +155,13 @@ shows. Things to know:
 - Record the phone models, the system versions and the TikTok version. The run
   of 2026-11-11 did not.
 
+### Running on WeChat and Douyin phones
+
+The preview of the developer tool puts an export on a phone. Use the export
+without the probe, tap "Run all" on an iPhone and on an Android phone, and
+record what the list shows together with the phone models, the system versions
+and the app version. The runs of 2026-11-11 recorded the result only.
+
 Without Defold installed, `node scripts/fetch_example_bundle.mjs --example
 sprite/flip --out <folder>` assembles a real HTML5 bundle from one of the
 examples on defold.com. Those examples are built with whatever Defold the site

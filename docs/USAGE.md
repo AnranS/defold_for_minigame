@@ -3,7 +3,7 @@
 This guide covers every exporter option, the differences between the three platforms, and the runtime behaviour of saves, audio, input, display, network, and package size. If this is your first export, start with the [quick start](QUICK_START.md).
 
 > [!WARNING]
-> v0.1.0 is experimental. Start-up, rendering, touch, saves, subpackages, and the Lua SDK have run with the real engine in three places: the WeChat DevTools and Douyin DevTools simulators, and TikTok through `ttmg dev` on an iPhone and an Android phone. Sound has run on WeChat and Douyin only. Everything else described here comes from the code and from simulated-host tests, and WeChat and Douyin have not run on a device. Test the entries marked "untested" yourself in particular.
+> v0.1.0 is experimental. Start-up, rendering, touch, saves, subpackages, and the Lua SDK have run with the real engine on all three platforms: in the WeChat DevTools and Douyin DevTools simulators, and on an iPhone and an Android phone in WeChat, Douyin, and TikTok. Sound has run on WeChat and Douyin. What ran is the test app in this repository; everything else described here comes from the code and from simulated-host tests. Test the entries marked "untested" yourself in particular.
 
 ## 1. Requirements
 
@@ -386,15 +386,15 @@ Exporting into the same folder again is safe.
 
 | Feature | Status |
 |---|---|
-| Sprites, text, GUI | ran in WeChat DevTools and Douyin DevTools, and on TikTok phones |
+| Sprites, text, GUI | ran in WeChat DevTools and Douyin DevTools, and on phones on all three platforms |
 | Particles, tile maps, physics, 3D | engine features, untested |
-| Touch | ran in WeChat DevTools and Douyin DevTools, and on TikTok phones; multi-touch passes simulated-host tests |
-| `sys.save` / `sys.load` | ran in WeChat DevTools and Douyin DevTools, across restarts; on TikTok phones a save went to key-value storage and was read back; `io.*` passes simulated-host tests |
+| Touch | ran in WeChat DevTools and Douyin DevTools, and on phones on all three platforms; multi-touch passes simulated-host tests |
+| `sys.save` / `sys.load` | ran in WeChat DevTools and Douyin DevTools, and on phones on all three platforms; read back across restarts in the developer tools, and written to key-value storage on TikTok; `io.*` passes simulated-host tests |
 | `http.request` | passes simulated-host tests |
 | `gui.show_keyboard` | passes simulated-host tests; basic |
-| Engine sound | WeChat and Douyin: ran in their developer tools; TikTok: off by default |
-| The `minigame` module | every unattended test of the API test app passes in WeChat DevTools and Douyin DevTools; on TikTok phones one failed, `set_share_content`, which the host has no API for. Login, modal, clipboard, sharing, ads, and payment need a tap, and no run of them is recorded |
-| Your own subpackages (`--subpackage`) | ran in WeChat DevTools and Douyin DevTools: loading, reading a file, playing audio; on TikTok phones loading passed, and reading a file is not available there |
+| Engine sound | WeChat and Douyin: ran in their developer tools and on phones; TikTok: off by default |
+| The `minigame` module | every unattended test of the API test app passes on WeChat and Douyin, in the developer tools and on phones; on TikTok phones one failed, `set_share_content`, which the host has no API for. Login, modal, clipboard, sharing, ads, and payment need a tap, and no run of them is recorded |
+| Your own subpackages (`--subpackage`) | ran on WeChat and Douyin, in the developer tools and on phones: loading, reading a file, playing audio; on TikTok phones loading passed, and reading a file is not available there |
 | JavaScript through `html5.run` | not supported |
 | WebAssembly threads, SIMD, exceptions | not supported; blocked at export |
 | Native extensions with JavaScript libraries | untested |
@@ -410,7 +410,7 @@ This is not hypothetical: Defold 1.14.1 rewrote the loader's start-up flow. Up t
 
 | Defold | Loader design | Status |
 |---|---|---|
-| 1.14.1 | session (`GameStartup`) | static check passes; covered by simulated-host tests; ran in WeChat DevTools and Douyin DevTools, and through `ttmg dev` on TikTok on an iPhone and an Android phone |
+| 1.14.1 | session (`GameStartup`) | static check passes; covered by simulated-host tests; ran in WeChat DevTools and Douyin DevTools, and on an iPhone and an Android phone in WeChat, Douyin, and TikTok |
 | 1.14.0 | legacy (`_preloadAndCallMain`) | static check passes; covered by simulated-host tests |
 
 [`support-matrix.json`](../support-matrix.json) records the checked versions and how far each was validated. A version that is not listed can still be exported; the result carries a warning.

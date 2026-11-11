@@ -20,8 +20,8 @@
 
 > [!WARNING]
 > **This is v0.1.0, an experimental release.**
-> Verified: more than 200 automated tests, a static check against the stock Defold 1.14.0 and 1.14.1 engines, and three runs of the real engine: in the WeChat DevTools and Douyin DevTools simulators, and on TikTok through `ttmg dev` on an iPhone and an Android phone. They cover start-up, rendering, touch, saves, subpackages, and the Lua SDK; sound is verified on WeChat and Douyin only.
-> Not verified: WeChat and Douyin on a real device. What ran is the test app in this repository, so pass the developer tool and a real device with your own game before you ship. See [Validation status](#validation-status).
+> Verified: more than 200 automated tests, a static check against the stock Defold 1.14.0 and 1.14.1 engines, and the real engine running on all three platforms: in the WeChat DevTools and Douyin DevTools simulators, and on an iPhone and an Android phone in WeChat, Douyin, and TikTok. The runs cover start-up, rendering, touch, saves, subpackages, and the Lua SDK; sound is verified on WeChat and Douyin.
+> What ran is the test app in this repository. Test your own game in the developer tool and on a device before you ship. See [Validation status](#validation-status).
 
 <p align="center">
   <img src="docs/screenshots/apitest-wechat-devtools-1.png" width="270" alt="The API test app in the WeChat DevTools simulator: the Setup, Generic access, Account, and Key-value storage groups, with every unattended test green" />
@@ -93,8 +93,8 @@ minigame.show_toast("Level " .. minigame.storage_get("level", "1"))
 
 | Platform | Runtime API | `game.json` subpackage field | Total limit | Status |
 |---|---|---|---|---|
-| WeChat Mini Game | `wx` | `subpackages` | 30 MB | 🧪 Experimental: the real engine runs in WeChat DevTools; no device yet |
-| Douyin Mini Game | `tt` | `subPackages` | 20 MB | 🧪 Experimental: the real engine runs in Douyin DevTools; no device yet |
+| WeChat Mini Game | `wx` | `subpackages` | 30 MB | 🧪 Experimental: the real engine runs in WeChat DevTools and on an iPhone and an Android phone |
+| Douyin Mini Game | `tt` | `subPackages` | 20 MB | 🧪 Experimental: the real engine runs in Douyin DevTools and on an iPhone and an Android phone |
 | TikTok Mini Game Native | `TTMinis.game` | `subpackages` | 30 MB | 🧪 Experimental: the real engine runs through `ttmg dev` on an iPhone and an Android phone; needs TikTok 43.4.0+ |
 
 The main package limit is 4 MB everywhere. An empty project exported with the stock Defold 1.14.1 engine has a main package of about 0.42 MB and an engine subpackage of about 0.92 MB (the engine binary goes from 2.89 MB to 0.92 MB); the rest is your game's assets.
@@ -109,10 +109,10 @@ Files of your own can be a subpackage too: export with `--subpackage levels=path
 
 | Defold | Engine SHA1 | Loader | Static check | Developer tool | Device |
 |---|---|---|---|---|---|
-| **`1.14.1`** (latest) | `ee283d4dad9f` | session | ✅ | ✅ | 🟡 TikTok |
+| **`1.14.1`** (latest) | `ee283d4dad9f` | session | ✅ | ✅ | ✅ |
 | `1.14.0` | `d295ed4edff2` | legacy | ✅ | ⬜ | ⬜ |
 
-🟡 means some of the three platforms: the names say which. Defold rewrote the start-up flow of its HTML5 loader in 1.14.1, so the runtime has two boot paths and the tests cover both.
+The developer tool and the device are recorded per platform: ✅ means all three ran. Defold rewrote the start-up flow of its HTML5 loader in 1.14.1, so the runtime has two boot paths and the tests cover both.
 
 A pre-release build of 1.14.2 passes the same static check, and four examples from defold.com that were built with it ran in WeChat DevTools. It joins the table when Defold releases it.
 
@@ -127,15 +127,17 @@ An export is not tied to a version number: every export checks that `dmloader.js
 | Lua integration | LuaJIT runs `minigame.lua` against the real JavaScript bridge | ✅ automated |
 | Static check | the stock Defold 1.14.0 and 1.14.1 engine glue and binary: structure, WebAssembly features, strict-mode compile | ✅ done |
 | Developer tools | the real engine and a real game bundle in WeChat DevTools, Douyin DevTools, and `ttmg dev` | ✅ done |
-| Devices | iOS, Android: TikTok ran on both kinds of phone; WeChat and Douyin not yet | 🟡 TikTok |
+| Devices | the test app on an iPhone and an Android phone in WeChat, Douyin, and TikTok | ✅ done |
 
 The engine stand-in is JavaScript that takes the place of the Emscripten glue in tests. It follows the real glue's contract, but it is not the real engine. The simulated-host tests therefore prove that the adapter's own logic is consistent; they do not prove that the real engine runs. The first run of the real engine found two things the stand-in had not: the engine sizes its canvas through `style.setProperty()`, and WeChat DevTools reports the system of the device it simulates, which sent the engine to WebGL 1. Both are fixed, and the stand-in and the tests now cover them. Douyin DevTools found two more: a tap sent by the tool is pressed and released within one frame, where the engine did not see it, and the tool rewrites `project.config.json` when it opens the project, which stopped the next export. Both are fixed as well.
 
-What ran, with the evidence collected by `scripts/devtools_probe.mjs` (console log, frames from the canvas, replayed touches):
+What ran. For the runs in a developer tool, `scripts/devtools_probe.mjs` collected the evidence (console log, frames from the canvas, replayed touches). The runs on phones were done by hand by the maintainer: no log was collected, and phone models, system versions, and app versions were not recorded.
 
 - **WeChat DevTools 36.6.0, Defold 1.14.1, the API test app in this repository**, built with `bob.jar`: all 41 unattended API tests passed, among them loading a subpackage of the game, reading a file from it, and playing a sound from it. The other 15 need a tap or leave the game.
 - **Douyin DevTools 4.5.7, the same app**: the same 41 tests passed; taps and swipes sent by the tool reached the buttons; the launch count kept by `sys.save()` survived restarts.
-- **TikTok on an iPhone and an Android phone, through `ttmg dev`, the same app**: run by hand by the maintainer, without the probe. One unattended test failed: `set_share_content`, because TikTok has no hook for its share menu (the app now skips that test there). The game's own subpackage loaded, and `sys.save()` wrote to key-value storage and read back. Engine sound is off on TikTok by default and was not part of the run. Phone models, system versions, and the TikTok version were not recorded.
+- **WeChat on an iPhone and an Android phone, the same app**: every unattended test passed.
+- **Douyin on an iPhone and an Android phone, the same app**: every unattended test passed.
+- **TikTok on an iPhone and an Android phone, through `ttmg dev`, the same app**: one unattended test failed: `set_share_content`, because TikTok has no hook for its share menu (the app now skips that test there). The game's own subpackage loaded, and `sys.save()` wrote to key-value storage and read back. Engine sound is off on TikTok by default and was not part of the run.
 - **WeChat DevTools 36.6.0, Defold 1.14.2 (alpha), four examples from defold.com**: sprites and text rendered; replayed touches arrived with the expected coordinates; a value saved with `sys.save()` was on disk and was loaded after three restarts; the music example's sound was heard.
 
 [`support-matrix.json`](support-matrix.json) records each run under `hostRuns`.
