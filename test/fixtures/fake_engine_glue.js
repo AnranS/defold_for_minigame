@@ -490,6 +490,8 @@ var GLFW = {
       var coord = GLFW.convertCoordinatesFromMonitorToWebGLPixels(touch.clientX, touch.clientY);
       __fake.touches.push({ phase: phase, id: touch.identifier, x: coord[0], y: coord[1], active: event.touches.length });
     }
+    // What the engine's input poll finds on its next frame.
+    __fake.touchDown = event.touches.length;
   },
   onTouchStart: function (event) {
     if (event.target != Module["canvas"]) return;
@@ -714,6 +716,10 @@ function fakeEngineMain(args) {
   fakeOpenSoundDevice();
   function frame() {
     __fake.frames++;
+    // The engine reads the state of its input once per frame. A press that
+    // was already released by then was never pressed, as far as it can tell.
+    __fake.touchDownSeen = __fake.touchDown || 0;
+    if (__fake.touchDownSeen > 0) __fake.framesWithTouch = (__fake.framesWithTouch || 0) + 1;
     fakeSwapBuffers();
     requestAnimationFrame(frame);
   }

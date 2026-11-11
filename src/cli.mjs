@@ -46,6 +46,8 @@ Options:
   --engine-audio <mode>      auto | on | off; auto keeps the engine mixer off on TikTok (default: auto)
   --persistence <mode>       auto | fs | storage | off; where sys.save() data is kept (default: auto)
   --assets <dir>             Copy a folder of loose files into the package as assets/
+  --subpackage <name>=<dir>  Ship a folder as a subpackage the game loads with
+                             minigame.load_subpackage("<name>"); repeatable
   --loading-text <text>      Text of the host loading indicator; "" disables it
   --engine-arg <arg>         Extra engine argument; repeatable
   --total-limit-mb <MB>      Override the platform's total package limit
@@ -57,7 +59,7 @@ Options:
 `;
 
 const FLAGS = new Set(["--no-brotli", "--allow-missing-bridge", "--force", "--json", "--help", "-h", "--version", "-v"]);
-const REPEATABLE = new Set(["--engine-arg", "--allow-wasm-feature"]);
+const REPEATABLE = new Set(["--engine-arg", "--allow-wasm-feature", "--subpackage"]);
 const VALUE_OPTIONS = new Set([
   "--bundle", "--project", "--bob", "--java", "--variant", "--platform", "--appid", "--output", "--name",
   "--orientation", "--heap-size", "--pixel-ratio", "--max-pixel-ratio", "--engine-audio", "--persistence",
@@ -92,6 +94,17 @@ export function parseArguments(argv) {
   return { positional, options };
 }
 
+/** "levels=res/levels" → { name: "levels", dir: "res/levels" }; the name ends at the first "=". */
+function subpackageOptions(values) {
+  return (values || []).map((value) => {
+    const split = value.indexOf("=");
+    if (split <= 0 || split === value.length - 1) {
+      throw new UsageError(`--subpackage expects <name>=<dir>, got '${value}'`);
+    }
+    return { name: value.slice(0, split), dir: value.slice(split + 1) };
+  });
+}
+
 function exportOptions(options, bundleDir) {
   const pixelRatio = options["--pixel-ratio"];
   return {
@@ -108,6 +121,7 @@ function exportOptions(options, bundleDir) {
     persistence: options["--persistence"],
     loadingText: options["--loading-text"],
     assetsDir: options["--assets"],
+    subpackages: subpackageOptions(options["--subpackage"]),
     engineArguments: options["--engine-arg"],
     totalLimitMb: options["--total-limit-mb"],
     brotli: !options["--no-brotli"],
@@ -128,6 +142,9 @@ function printExportResult(result, out) {
   out(`  main package    ${formatBytes(sizes.main)} of ${formatBytes(sizes.limits.main)}`);
   out(`  engine package  ${formatBytes(sizes.engineSubpackage)}`
     + ` (engine ${formatBytes(sizes.wasmPackaged)} from ${formatBytes(sizes.wasm)}, archive ${formatBytes(sizes.archive)})`);
+  for (const subpackage of report.subpackages) {
+    out(`  subpackage      ${subpackage.name}  ${formatBytes(subpackage.bytes)} in ${subpackage.files} files`);
+  }
   out(`  total           ${formatBytes(sizes.total)} of ${formatBytes(sizes.limits.total)}`);
   out(`  html5.run       ${report.engineModule.evalSites > 0 ? "bridged to the minigame Lua module" : "not bridged"}`);
   for (const warning of result.warnings) out(`  warning         ${warning}`);
@@ -140,8 +157,13 @@ function printExportResult(result, out) {
     out(`  1. Open ${result.outputDir} in ${platform.devtool}`);
     out("  2. Preview on a phone before you submit");
   }
-  out("  The export is checked by automated tests against a simulated host only;");
-  out("  the developer tool and a real device are the acceptance gates.");
+  if (platform.validation.devtoolCompile === "verified") {
+    out(`  Exports of this tool have run in the simulator of ${platform.devtool}, and on no phone yet;`);
+    out("  a real device is the acceptance gate.");
+  } else {
+    out("  The export is checked by automated tests against a simulated host only;");
+    out("  the developer tool and a real device are the acceptance gates.");
+  }
 }
 
 function printInspection(inspection, out) {

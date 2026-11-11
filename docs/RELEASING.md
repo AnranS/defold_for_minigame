@@ -68,7 +68,8 @@ unattended test:
 
 ```bash
 node bin/defold-minigame.mjs build --project . --bob <bob.jar> --java <java> \
-  --platform wechat --appid <app id> --assets example/assets --output <project>
+  --platform wechat --appid <app id> --assets example/assets \
+  --subpackage extras=example/extras --output <project>
 node scripts/devtools_probe.mjs inject --project <project> --label apitest \
   --storage apitest.autorun=1 --capture 30000 --finish 32000
 # open <project> in WeChat DevTools and wait for the run to finish, then:
@@ -89,6 +90,39 @@ the collected frames must show the list. Things to know:
   in the background. Give a run more time, or keep the window in front.
 - The probe is silent by default. `--audible` lets the sound through.
 - `bob.jar` needs the JDK named in the Defold manual: OpenJDK 25 for 1.14.
+- Without `--subpackage extras=example/extras` the three tests of the game's
+  own subpackage are skipped, and the run does not cover them.
+
+### Running in Douyin DevTools
+
+The same app, exported with `--platform douyin` and the same options, with the
+probe injected the same way. Import the folder in Douyin DevTools as a mini
+game. The run is read from the tool's console, which must show
+`[apitest] done pass=<n> fail=0`, and from a screenshot of the simulator.
+
+Douyin DevTools ships a command-line tool, `douyinide`, that does this without
+the window:
+
+```bash
+douyinide open-project-window --path <project> --type microgame
+douyinide get-project-windows-info                         # the window id
+douyinide miniapp-get-console-messages --window-id <id>
+douyinide miniapp-image-screenshot --window-id <id> --file-name <png>
+douyinide miniapp-tap --window-id <id> --x <x> --y <y>     # a tap reaches a button
+douyinide miniapp-swipe --window-id <id> --start-x <x> --start-y <y> --move <x>,<y> --end-x <x> --end-y <y>
+```
+
+Things to know:
+
+- The tool rewrites `project.config.json` when it opens the project. Later
+  exports into the folder keep that file; see the usage guide.
+- After an export into an open project, clear the compile cache
+  (`douyinide debug-clear-cache --type compile-cache`) and compile again
+  (`douyinide simulator-compile`).
+- The console lists a repeated message once. A test that is run a second time
+  with the same result adds no line; look at the screen instead.
+- `miniapp-tap` presses and releases within one frame. That is the case the
+  adapter holds the release for, so send at least one such tap per release.
 
 Without Defold installed, `node scripts/fetch_example_bundle.mjs --example
 sprite/flip --out <folder>` assembles a real HTML5 bundle from one of the

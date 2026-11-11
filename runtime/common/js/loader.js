@@ -141,6 +141,7 @@ class Loader {
         engineAudio: adapter.engineAudio,
         persistence: backend.kind,
         pixelRatio: adapter.pixelRatio,
+        subpackages: this.config.subpackages,
       });
       this._publish("DefoldMiniGameBridge", this.bridge);
 

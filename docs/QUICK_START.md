@@ -1,6 +1,6 @@
 # Quick start
 
-Four steps take a Defold project to a mini-game project a developer tool can open. One thing first: the real engine has run in the WeChat DevTools simulator, and nowhere else yet. The Douyin and TikTok tools and every real device are unverified, so step 4 may well turn up something worth reporting.
+Four steps take a Defold project to a mini-game project a developer tool can open. One thing first: the real engine has run in the WeChat DevTools and Douyin DevTools simulators, and nowhere else yet. TikTok's `ttmg dev` and every real device are unverified, so step 4 may well turn up something worth reporting there.
 
 ## What you need
 
@@ -38,6 +38,7 @@ node bin/defold-minigame.mjs export \
 
 - `--platform` is `wechat`, `douyin`, or `tiktok`. One export targets one platform; export three times into three folders for all of them.
 - `--output` must be empty, or a folder this tool exported into before. It cannot be inside the HTML5 bundle.
+- Files the game reaches by path, such as audio and images, can ship as a subpackage with `--subpackage name=dir`, outside the 4 MB of the main package; see the [usage guide](USAGE.md#12-package-size-and-subpackages).
 - The orientation follows the project's `display.width` and `display.height`; pass `--orientation portrait` or `landscape` to set it.
 
 A successful export prints the size of each part:
@@ -97,7 +98,7 @@ After changing scripts, bundle and export again. Exporting into the same folder 
 
 ### Douyin
 
-Import the output folder in Douyin DevTools with the App ID you exported with.
+Import the output folder in Douyin DevTools as a mini game, with the App ID you exported with. The tool rewrites `project.config.json` when it opens the project; exporting into the same folder again still works.
 
 ### TikTok
 

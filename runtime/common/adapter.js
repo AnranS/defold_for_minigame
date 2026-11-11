@@ -732,11 +732,34 @@ const _timers = {
   clearInterval: (id) => clearInterval(id),
 };
 
+// The engine runs once per animation frame and polls its input then. The
+// adapter counts the frames that have finished, so that it can tell whether
+// the engine has had the chance to see one change before the next arrives.
+let _frame = 0;
+let _frameEndScheduled = false;
+
+function _endOfFrame() {
+  _frameEndScheduled = false;
+  _frame += 1;
+  _releaseHeldTouches();
+}
+
 function _requestAnimationFrame(callback) {
-  if (typeof _global.requestAnimationFrame === "function") return _global.requestAnimationFrame(callback);
-  if (typeof requestAnimationFrame === "function") return requestAnimationFrame(callback);
-  if (typeof _nativeCanvas.requestAnimationFrame === "function") return _nativeCanvas.requestAnimationFrame(callback);
-  return setTimeout(() => callback(_performance.now()), 16);
+  const tick = (time) => {
+    try {
+      return callback(time);
+    } finally {
+      // A timer runs after every callback of this frame, whichever of them is the engine's.
+      if (!_frameEndScheduled) {
+        _frameEndScheduled = true;
+        setTimeout(_endOfFrame, 0);
+      }
+    }
+  };
+  if (typeof _global.requestAnimationFrame === "function") return _global.requestAnimationFrame(tick);
+  if (typeof requestAnimationFrame === "function") return requestAnimationFrame(tick);
+  if (typeof _nativeCanvas.requestAnimationFrame === "function") return _nativeCanvas.requestAnimationFrame(tick);
+  return setTimeout(() => tick(_performance.now()), 16);
 }
 
 function _cancelAnimationFrame(id) {
@@ -874,9 +897,44 @@ function _mouseEvent(type, touch) {
   return event;
 }
 
+// A finger rests on the screen for several frames, but a developer tool's
+// automation can press and release in an instant. The engine polls its input
+// once per frame, so a press that is already released by then never happened
+// as far as it can tell, and two instant taps would look like one. A touch
+// therefore changes between pressed and released at most once per frame: a
+// change that comes too soon waits for the engine's next frame, and whatever
+// follows it waits behind it, in order.
+const _touchChanged = new Map(); // touch identifier → the frame its press or release was delivered in
+const _heldTouches = [];
+
+function _touchMustWait(touchType, raw) {
+  if (touchType === "touchmove") return false;
+  const changed = (raw && raw.changedTouches) || [];
+  return changed.some((entry) => _touchChanged.get(entry.identifier) === _frame);
+}
+
 function _forwardTouch(touchType, mouseType, raw) {
+  if (_heldTouches.length > 0 || _touchMustWait(touchType, raw)) {
+    _heldTouches.push([touchType, mouseType, raw]);
+    return;
+  }
+  _deliverTouch(touchType, mouseType, raw);
+}
+
+function _releaseHeldTouches() {
+  _touchChanged.clear(); // everything in it belongs to a frame that is over
+  while (_heldTouches.length > 0 && !_touchMustWait(_heldTouches[0][0], _heldTouches[0][2])) {
+    const [touchType, mouseType, raw] = _heldTouches.shift();
+    _deliverTouch(touchType, mouseType, raw);
+  }
+}
+
+function _deliverTouch(touchType, mouseType, raw) {
   const changed = (raw && raw.changedTouches) || [];
   if (changed.length === 0) return;
+  if (touchType !== "touchmove") {
+    for (const entry of changed) _touchChanged.set(entry.identifier, _frame);
+  }
   if (_hasListeners(touchType)) {
     _dispatch(touchType, _touchEvent(touchType, raw));
   } else if (mouseType) {

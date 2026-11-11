@@ -26,7 +26,7 @@ local minigame = require "minigame.minigame"
 
 ### `minigame.info()`
 
-启动时桥上报的信息：平台、能力表、系统信息、存档后端、引擎音频是否可用。
+启动时桥上报的信息：平台、能力表、系统信息、存档后端、引擎音频是否可用，以及 subpackages：导出时用 --subpackage 声明的分包名。
 
 ### `minigame.has_engine_audio()`
 
@@ -216,7 +216,7 @@ Banner 广告。style：left、top、width（逻辑像素）。banner:show()、b
 
 ### `minigame.load_subpackage(name, callback, progress)`
 
-加载 game.json 里声明的分包。callback(loaded, err)，progress(percent)。
+加载导出时用 --subpackage 名字=目录 声明的分包。加载完成后，分包里的文件就在包内的 名字/ 目录下，比如可以作为 minigame.inner_audio() 的音源。callback(loaded, err)，progress(percent)。
 
 ## 宿主对象
 

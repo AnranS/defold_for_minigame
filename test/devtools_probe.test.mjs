@@ -102,11 +102,27 @@ test("removing the probe leaves the project exactly as it was exported", (t) => 
   remove({ project }); // a second removal is harmless
 });
 
-test("the probe only goes into a WeChat project this tool exported", (t) => {
+test("the probe goes into WeChat and Douyin projects this tool exported, and nowhere else", (t) => {
   const workspace = makeWorkspace(t);
   assert.throws(() => inject({ project: workspace.root }), /not a project this tool exported/);
+  // Writing files on TikTok can end the client, so the probe stays out of it.
+  workspace.export("tiktok");
+  assert.throws(() => inject({ project: workspace.outputDir("tiktok") }), /written for WeChat and Douyin DevTools/);
+});
+
+test("a probed Douyin export boots and reports through the tt API", async (t) => {
+  const workspace = makeWorkspace(t);
   workspace.export("douyin");
-  assert.throws(() => inject({ project: workspace.outputDir("douyin") }), /written for WeChat DevTools/);
+  inject({ project: workspace.outputDir("douyin"), label: "dy", captures: [0], finishAt: 30 });
+  const host = workspace.host("douyin");
+  await host.start();
+  for (let round = 0; round < 40; round += 1) { host.frame(1); await host.settle(1); }
+  const result = collect({ storage: workspace.userDataDir, out: join(workspace.root, "evidence"), label: "dy" });
+  assert.match(result.log, /5\/5 the engine is running/);
+  assert.equal(result.summary.finished, true);
+  assert.equal(result.summary.errors, 0);
+  assert.equal(result.summary.captures.length, 1);
+  assert.deepEqual(host.errors(), []);
 });
 
 test("touch steps are parsed strictly", () => {

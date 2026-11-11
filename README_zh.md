@@ -20,14 +20,14 @@
 
 > [!WARNING]
 > **当前是 v0.1.0 实验版。**
-> 已经验证的是：200 多项自动化测试，对 Defold 1.14.0 和 1.14.1 官方引擎的静态核对，以及真实引擎在微信开发者工具模拟器里的运行：启动、渲染、触摸、存档、声音和 Lua SDK。
-> 没有验证的是：抖音和 TikTok 的开发者工具，以及所有真机。上线前必须自己过开发者工具和真机这两关。详见[验证状态](#验证状态)。
+> 已经验证的是：200 多项自动化测试，对 Defold 1.14.0 和 1.14.1 官方引擎的静态核对，以及真实引擎在微信开发者工具和抖音开发者工具模拟器里的运行：启动、渲染、触摸、存档、声音、分包和 Lua SDK。
+> 没有验证的是：TikTok 的 `ttmg dev`，以及所有真机。上线前必须自己过开发者工具和真机这两关。详见[验证状态](#验证状态)。
 
 <p align="center">
   <img src="docs/screenshots/apitest-wechat-devtools-1.png" width="270" alt="API 功能测试列表在微信开发者工具模拟器里的截图：Setup、Generic access、Account、Key-value storage 几组，自动项全部为绿色" />
-  <img src="docs/screenshots/apitest-wechat-devtools-2.png" width="270" alt="API 功能测试列表在微信开发者工具模拟器里向下滚动后的截图：System、Sharing、Ads、Payment 几组" />
+  <img src="docs/screenshots/apitest-douyin-devtools-2.png" width="270" alt="API 功能测试列表在抖音开发者工具模拟器里滚动到末尾的截图：Host audio、Subpackages、Engine 几组，分包的加载、读取、播放都是绿色" />
 </p>
-<p align="center"><sub>真实截图：仓库自带的 API 功能测试列表，Defold 1.14.1，运行在微信开发者工具的模拟器里。绿色是通过，紫色的需要人点一下或会离开游戏。</sub></p>
+<p align="center"><sub>真实截图：仓库自带的 API 功能测试列表，Defold 1.14.1。左边运行在微信开发者工具的模拟器里，右边运行在抖音开发者工具的模拟器里。绿色是通过，紫色的需要人点一下或会离开游戏。</sub></p>
 
 <table>
   <tr>
@@ -88,10 +88,12 @@ minigame.show_toast("Level " .. minigame.storage_get("level", "1"))
 | 平台 | 运行时 API | `game.json` 分包字段 | 总包上限 | 状态 |
 |---|---|---|---|---|
 | 微信小游戏 | `wx` | `subpackages` | 30 MB | 🧪 实验：真实引擎已在微信开发者工具里运行，真机未验证 |
-| 抖音小游戏 | `tt` | `subPackages` | 20 MB | 🧪 实验：仅模拟宿主测试 |
+| 抖音小游戏 | `tt` | `subPackages` | 20 MB | 🧪 实验：真实引擎已在抖音开发者工具里运行，真机未验证 |
 | TikTok Mini Game Native | `TTMinis.game` | `subpackages` | 30 MB | 🧪 实验：仅模拟宿主测试，需要 TikTok 43.4.0+ |
 
 主包上限都是 4 MB。用 Defold 1.14.1 官方引擎导出的空项目，主包约 0.42 MB，引擎分包约 0.92 MB（引擎二进制从 2.89 MB 压到 0.92 MB），其余是你的游戏资源。
+
+游戏自己的文件也可以做成分包：导出时加 `--subpackage levels=path/to/levels`，这个目录就成为名叫 `levels` 的分包，不占主包的 4 MB；游戏里调用 `minigame.load_subpackage("levels", ...)` 之后，文件就在 `levels/` 下可用。详见[使用指南](docs/USAGE_zh.md#12-包体与分包)。
 
 <p align="center">
   <img src="docs/images/package-zh.svg" width="860" alt="主包只有入口、配置、适配层和引擎模块，约 0.42 MB；engine 分包里是 Brotli 压缩后的官方引擎和游戏归档" />
@@ -101,10 +103,10 @@ minigame.show_toast("Level " .. minigame.storage_get("level", "1"))
 
 | Defold | 引擎 SHA1 | 加载器 | 静态核对 | 开发者工具 | 真机 |
 |---|---|---|---|---|---|
-| **`1.14.1`**（最新） | `ee283d4dad9f` | 会话式 | ✅ | 🟡 微信 | ⬜ |
+| **`1.14.1`**（最新） | `ee283d4dad9f` | 会话式 | ✅ | 🟡 微信、抖音 | ⬜ |
 | `1.14.0` | `d295ed4edff2` | 旧式 | ✅ | ⬜ | ⬜ |
 
-🟡 表示三个平台里只验证了一部分，后面写的是哪个平台。Defold 在 1.14.1 重写了 HTML5 加载器的启动流程，所以运行时里有两条启动路径，测试对两条都覆盖。
+🟡 表示三个平台里只验证了一部分，后面写的是哪些平台。Defold 在 1.14.1 重写了 HTML5 加载器的启动流程，所以运行时里有两条启动路径，测试对两条都覆盖。
 
 1.14.2 的预发布版通过了同样的静态核对，defold.com 上用它构建的四个示例也在微信开发者工具里跑过。等 Defold 正式发布后再把它列进表里。
 
@@ -118,22 +120,23 @@ minigame.show_toast("Level " .. minigame.storage_get("level", "1"))
 | 模拟宿主 | 真实的 Defold 1.14.0 和 1.14.1 `dmloader.js` 加引擎替身，在模拟的 `wx`、`tt`、`TTMinis.game` 里启动、触摸、键盘、存档、音频、网络 | ✅ 自动化 |
 | Lua 联调 | LuaJIT 运行 `minigame.lua`，对接真实的 JS 桥 | ✅ 自动化 |
 | 静态核对 | Defold 1.14.0 和 1.14.1 官方引擎胶水和二进制：结构、WebAssembly 特性、严格模式编译 | ✅ 已做 |
-| 开发者工具 | 真实引擎和真实游戏包在微信开发者工具里运行；抖音开发者工具和 `ttmg dev` 还没有 | 🟡 仅微信 |
+| 开发者工具 | 真实引擎和真实游戏包在微信开发者工具、抖音开发者工具里运行；`ttmg dev` 还没有 | 🟡 微信、抖音 |
 | 真机 | iOS、Android | ⬜ 未做 |
 
-引擎替身是测试里代替 Emscripten 胶水的一段 JavaScript，它按真实胶水的约定工作，但不是真实引擎。所以模拟宿主测试能证明适配层自身的逻辑是自洽的，不能证明真实引擎能跑。真实引擎第一次运行就暴露了替身没有覆盖到的两件事：引擎通过 `style.setProperty()` 调整画布尺寸；微信开发者工具上报的是它所模拟机型的系统版本，引擎因此退回了 WebGL 1。两处都已修复，替身和测试现在也覆盖了它们。
+引擎替身是测试里代替 Emscripten 胶水的一段 JavaScript，它按真实胶水的约定工作，但不是真实引擎。所以模拟宿主测试能证明适配层自身的逻辑是自洽的，不能证明真实引擎能跑。真实引擎第一次运行就暴露了替身没有覆盖到的两件事：引擎通过 `style.setProperty()` 调整画布尺寸；微信开发者工具上报的是它所模拟机型的系统版本，引擎因此退回了 WebGL 1。两处都已修复，替身和测试现在也覆盖了它们。在抖音开发者工具里又发现两件：工具发出的点击，按下和抬起落在同一帧里，引擎看不到；工具打开工程时会重写 `project.config.json`，再次导出因此被拦下。这两处也已修复。
 
-在微信开发者工具 36.6.0 里实际运行过的内容如下，证据由 `scripts/devtools_probe.mjs` 采集（控制台日志、画布截图、回放的触摸）：
+实际运行过的内容如下，证据由 `scripts/devtools_probe.mjs` 采集（控制台日志、画布截图、回放的触摸）：
 
-- **Defold 1.14.1，仓库自带的 API 功能测试应用**，用 `bob.jar` 构建：38 项自动测试全部通过。另外 15 项需要人点一下，或者会离开游戏。
-- **Defold 1.14.2（预发布版），defold.com 上的四个示例**：精灵和文字正常渲染；回放的触摸以预期的坐标到达游戏；`sys.save()` 保存的值落到了磁盘上，三次重启后都能读回；音乐示例的声音能听到。
+- **微信开发者工具 36.6.0，Defold 1.14.1，仓库自带的 API 功能测试应用**，用 `bob.jar` 构建：41 项自动测试全部通过，包括加载游戏自己的分包、读取分包里的文件、播放分包里的声音。另外 15 项需要人点一下，或者会离开游戏。
+- **抖音开发者工具 4.5.7，同一个应用**：同样 41 项全部通过；工具发出的点击和滑动能点到按钮；`sys.save()` 记的启动次数在重启后还在。
+- **微信开发者工具 36.6.0，Defold 1.14.2（预发布版），defold.com 上的四个示例**：精灵和文字正常渲染；回放的触摸以预期的坐标到达游戏；`sys.save()` 保存的值落到了磁盘上，三次重启后都能读回；音乐示例的声音能听到。
 
 每次运行都记录在 [`support-matrix.json`](support-matrix.json) 的 `hostRuns` 里。
 
 ## 已知限制
 
 - **TikTok 默认没有引擎声音**：Defold 的混音器每个音频块新建一个 AudioBuffer 和 BufferSource，这种用法在 godot_for_minigame 的真机测试里让 TikTok 客户端崩溃过，所以默认关闭。请用 `minigame.inner_audio()` 播放，或自担风险用 `--engine-audio on` 打开。
-- **资源只能放在包里**：游戏归档随引擎分包下发，不支持从 CDN 加载，受平台总包上限约束。
+- **资源只能放在包里**：游戏归档随引擎分包下发，不支持从 CDN 加载，受平台总包上限约束。`--subpackage` 的分包装的是游戏按路径读取的散文件（音频、图片、数据），Defold 归档里的内容不能拆进去。
 - **`html5.run()` 不能执行 JavaScript**：小游戏禁用 `eval`，这个函数只用来和 `minigame` 模块通信。
 - **老 iOS 需要 WebGL1 着色器**：引擎在 iOS 15.2 以下会自己退回 WebGL1；Defold 1.14.1 起默认不打包 WebGL1 着色器，需要在 `game.project` 里设置 `shader.exclude_gles_sm100 = 0`。
 - **带 JS 库的原生扩展没有验证**：扩展的 JS 代码会和引擎胶水一起放进作用域模块，但没有测试过。
@@ -162,8 +165,11 @@ minigame.show_toast("Level " .. minigame.storage_get("level", "1"))
 
 ```bash
 node bin/defold-minigame.mjs build --project . --bob path/to/bob.jar \
-  --platform wechat --appid <你的 App ID> --assets example/assets --output ../apitest-wechat
+  --platform wechat --appid <你的 App ID> --assets example/assets \
+  --subpackage extras=example/extras --output ../apitest-wechat
 ```
+
+`--subpackage extras=example/extras` 把 `example/extras` 做成分包，“Subpackages” 一组的测试会加载它、读取并播放里面的文件；不带这个参数时这几项会跳过。
 
 在开发者工具里打开输出目录，点按钮，结果显示在对应分组下面。每条结果也会以 `[apitest] <状态> <编号> <说明>` 的形式写进宿主的控制台。
 

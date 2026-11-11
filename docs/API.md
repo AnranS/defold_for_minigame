@@ -28,7 +28,7 @@ True when the game runs in a mini-game host this module can talk to.
 
 ### `minigame.info()`
 
-What the bridge reported at start-up: platform, capabilities, system, persistence, engineAudio.
+What the bridge reported at start-up: platform, capabilities, system, persistence, engineAudio, and subpackages, the names the export declared with --subpackage.
 
 ### `minigame.has_engine_audio()`
 
@@ -231,7 +231,7 @@ Creates a host audio player for a file in the package or a URL. options: loop, v
 
 ### `minigame.load_subpackage(name, callback, progress)`
 
-Loads a subpackage declared in game.json. callback(loaded, err), progress(percent)
+Loads a subpackage the export declared with --subpackage name=dir. Once loaded, its files are in the package under name/, for example as the source of minigame.inner_audio(). callback(loaded, err), progress(percent)
 
 ## Host objects
 

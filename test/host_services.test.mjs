@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
 
-import { makeWorkspace } from "./helpers/workspace.mjs";
+import { PLATFORMS, makeWorkspace } from "./helpers/workspace.mjs";
 
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
@@ -139,3 +141,39 @@ test("the bridge is published for the developer-tool console", async (t) => {
   assert.equal(host.gameGlobal.__defoldMiniGameLoader.state, "running");
   assert.equal(host.bridge.handshake().persistence, "storage");
 });
+
+for (const platform of PLATFORMS) {
+  test(`a subpackage of the game is announced, loads on request, and only then has its files (${platform})`, async (t) => {
+    const workspace = makeWorkspace(t);
+    const levels = join(workspace.root, "levels");
+    mkdirSync(levels);
+    writeFileSync(join(levels, "map.json"), '{"rooms":3}');
+    const host = await workspace.run(platform, { exportOptions: { subpackages: [{ name: "levels", dir: levels }] } });
+
+    // The Lua module learns at the handshake which subpackages it may ask for.
+    const info = host.lua(host.require("js/bridge.js").HANDSHAKE_EXPRESSION);
+    assert.deepEqual(info.subpackages, ["levels"]);
+
+    // Starting the game downloads the engine and nothing else.
+    assert.deepEqual(host.calls.get("loadSubpackage"), [["engine"]]);
+    const fileSystem = host.api.getFileSystemManager();
+    assert.throws(() => fileSystem.readFileSync("levels/map.json", "utf8"), /subpackage 'levels' is not loaded/);
+
+    // What minigame.load_subpackage() sends.
+    host.lua({ op: "call", api: "loadSubpackage", args: { name: "levels" }, id: "c1:1", handle: "c1:h1" });
+    host.lua({ op: "listen", handle: "c1:h1", event: "onProgressUpdate", id: "c1:2" });
+    await host.settle();
+    const events = host.lua({ op: "poll", client: "c1" });
+    assert.ok(events.some((event) => event.id === "c1:2" && event.data.progress === 100), JSON.stringify(events));
+    assert.ok(events.some((event) => event.id === "c1:1" && event.ok === true), JSON.stringify(events));
+    assert.equal(fileSystem.readFileSync("levels/map.json", "utf8"), '{"rooms":3}');
+
+    // A name game.json does not declare is refused by the host, and the game hears why.
+    host.lua({ op: "call", api: "loadSubpackage", args: { name: "bonus" }, id: "c1:3", handle: "c1:h2" });
+    await host.settle();
+    const refused = host.lua({ op: "poll", client: "c1" }).find((event) => event.id === "c1:3");
+    assert.equal(refused.ok, false);
+    assert.match(refused.error, /'bonus' is not declared in game\.json/);
+    assert.equal(host.crashed, null);
+  });
+}

@@ -7,13 +7,13 @@
  * through the output guard.
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { brotliCompressSync, brotliDecompressSync, constants as zlibConstants } from "node:zlib";
 
 import { readBundle } from "./bundle.mjs";
 import { composeEngineModule } from "./engine_module.mjs";
-import { publish } from "./output_guard.mjs";
+import { MANIFEST_NAME, publish } from "./output_guard.mjs";
 import { getPlatform } from "./platforms.mjs";
 import {
   ExportError, REPO_ROOT, formatBytes, isDirectory, isInside, listFiles, loadSupportMatrix,
@@ -37,6 +37,21 @@ const COMMON_RUNTIME_FILES = [
 /** Folder inside the package that receives the files passed with --assets. */
 const ASSETS_DIRECTORY = "assets";
 
+/** The entry file a host runs when it loads a subpackage; ours have nothing to run. */
+const SUBPACKAGE_ENTRY = "game.js";
+
+/**
+ * A subpackage is a top-level folder of the package, so its name is a folder
+ * name on every file system and a value in game.json on every host.
+ */
+const SUBPACKAGE_NAME = /^[A-Za-z][A-Za-z0-9_-]{0,31}$/;
+
+/** Top-level names the export writes itself (compared without case: macOS and Windows fold it). */
+const RESERVED_NAMES = new Set([
+  ENGINE_SUBPACKAGE, ASSETS_DIRECTORY, "js", "game.js", "game.json", "adapter.js",
+  "project.config.json", "project.private.config.json", MANIFEST_NAME,
+].map((name) => name.toLowerCase()));
+
 /**
  * Extensions the WeChat developer tool uploads; anything else stays on the
  * developer's disk. The other hosts publish no list, so this one is used as
@@ -47,6 +62,15 @@ const UPLOADABLE_EXTENSIONS = new Set((
   + "swf ani part proto bin sk mipmaps txt zip tt map ogg silk dbbin dbmv etc lmat lm ls lh lani lav lsani ltc "
   + "aac astc br csv cur dat dds glb gltf ico ktx lmani lml pkm prefab scene skel wasm xml"
 ).split(" "));
+
+/**
+ * The developer tool's project files. The export creates them; after that the
+ * developer tool writes to them: Douyin's rewrites project.config.json when it
+ * opens the project, and all of them keep the project settings of their UI
+ * there. A later export leaves what it finds and only keeps the App ID, the
+ * project type and, when one is given, the name in step.
+ */
+const PROJECT_FILES = ["project.config.json", "project.private.config.json"];
 
 const ORIENTATIONS = new Set(["portrait", "landscape", "auto"]);
 const ENGINE_AUDIO = new Set(["auto", "on", "off"]);
@@ -60,6 +84,46 @@ function renderTemplate(path, values) {
   });
   // Re-serialising proves the result is still valid JSON after substitution.
   return `${JSON.stringify(JSON.parse(rendered), null, 2)}\n`;
+}
+
+const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+
+/** Adds the keys of `defaults` that `target` lacks, at every depth. */
+function fillDefaults(target, defaults) {
+  for (const [key, value] of Object.entries(defaults)) {
+    if (!(key in target)) target[key] = value;
+    else if (isPlainObject(target[key]) && isPlainObject(value)) fillDefaults(target[key], value);
+  }
+  return target;
+}
+
+/**
+ * What to write for one of the developer tool's project files: the export's
+ * own version, or the version in the output folder brought up to date.
+ */
+function projectFile(name, rendered, options, warnings) {
+  const path = join(options.outputDir, name);
+  const ours = existsSync(join(options.outputDir, MANIFEST_NAME));
+  if (options.force || !ours || !existsSync(path)) return rendered;
+  let existing;
+  try {
+    existing = JSON.parse(readFileSync(path, "utf8"));
+  } catch (_) {
+    existing = null;
+  }
+  if (!isPlainObject(existing)) {
+    warnings.push(`${name} was not valid JSON and was written anew`);
+    return rendered;
+  }
+  const fresh = JSON.parse(rendered);
+  const merged = fillDefaults(existing, fresh);
+  merged.appid = fresh.appid;
+  if ("compileType" in fresh) merged.compileType = fresh.compileType;
+  if (options.name) {
+    merged.projectname = fresh.projectname;
+    if (fresh.description) merged.description = fresh.description;
+  }
+  return `${JSON.stringify(merged, null, 2)}\n`;
 }
 
 function resolveOrientation(requested, dmloader) {
@@ -146,11 +210,14 @@ function normaliseOptions(options) {
     }
   }
 
+  const subpackages = normaliseSubpackages(options.subpackages, outputDir);
+
   return {
     platform,
     bundleDir,
     outputDir,
     assetsDir,
+    subpackages,
     appId,
     orientation,
     name: options.name ? String(options.name) : null,
@@ -169,6 +236,58 @@ function normaliseOptions(options) {
     allowMissingBridge: options.allowMissingBridge === true,
     force: options.force === true,
   };
+}
+
+/** The game's own subpackages: [{ name, dir }] → the same list, checked and resolved. */
+function normaliseSubpackages(requested, outputDir) {
+  if (requested === undefined || requested === null) return [];
+  if (!Array.isArray(requested)) throw new ExportError("subpackages must be a list of { name, dir }");
+  const subpackages = [];
+  const seen = new Set();
+  for (const entry of requested) {
+    const name = String(entry && entry.name !== undefined && entry.name !== null ? entry.name : "");
+    if (RESERVED_NAMES.has(name.toLowerCase())) {
+      throw new ExportError(
+        `the subpackage name '${name}' is used by the export itself`,
+        { hint: "Choose another name; the folder of that name in the package holds the engine or the runtime." },
+      );
+    }
+    if (!SUBPACKAGE_NAME.test(name)) {
+      throw new ExportError(
+        `'${name}' is not a usable subpackage name`,
+        { hint: "Start with a letter and use only letters, digits, '-' and '_' (32 characters at most)." },
+      );
+    }
+    if (seen.has(name.toLowerCase())) throw new ExportError(`the subpackage '${name}' is declared twice`);
+    seen.add(name.toLowerCase());
+
+    if (!entry.dir) throw new ExportError(`the subpackage '${name}' needs a folder (--subpackage ${name}=<dir>)`);
+    const dir = resolve(String(entry.dir));
+    if (!isDirectory(dir)) throw new ExportError(`the folder of subpackage '${name}' does not exist: ${dir}`);
+    if (isInside(dir, outputDir) || isInside(outputDir, dir)) {
+      throw new ExportError(`the output directory and the folder of subpackage '${name}' must not contain one another`);
+    }
+    subpackages.push({ name, dir });
+  }
+  return subpackages;
+}
+
+/**
+ * Copies a folder of loose files into the package under `prefix`.
+ * Hidden files stay out. Returns how many files went in, and adds the
+ * extensions a developer tool would not upload to `notUploadable`.
+ */
+function addLooseFiles(files, directory, prefix, notUploadable) {
+  let count = 0;
+  for (const file of listFiles(directory)) {
+    if (file.split("/").some((part) => part.startsWith("."))) continue;
+    const dot = file.lastIndexOf(".");
+    const extension = dot === -1 ? "" : file.slice(dot + 1).toLowerCase();
+    if (!UPLOADABLE_EXTENSIONS.has(extension)) notUploadable.add(extension === "" ? "(none)" : `.${extension}`);
+    files.set(`${prefix}/${file}`, readFileSync(join(directory, file)));
+    count += 1;
+  }
+  return count;
 }
 
 function compressWasm(wasm, quality) {
@@ -269,13 +388,15 @@ export function exportMiniGame(rawOptions) {
   const projectName = options.name || bundle.exeName;
   const templateValues = { ORIENTATION: orientation, NAME: projectName, APPID: options.appId };
   files.set("game.js", readFileSync(join(platformRoot, "game.js")));
-  files.set("game.json", renderTemplate(join(platformRoot, "game.json.template"), templateValues));
-  files.set("project.config.json", renderTemplate(join(platformRoot, "project.config.json.template"), templateValues));
-  if (platform.hasPrivateConfig) {
-    files.set(
-      "project.private.config.json",
-      renderTemplate(join(platformRoot, "project.private.config.json.template"), templateValues),
-    );
+  const gameJson = JSON.parse(renderTemplate(join(platformRoot, "game.json.template"), templateValues));
+  for (const subpackage of options.subpackages) {
+    gameJson[platform.subpackageField].push({ root: `${subpackage.name}/`, name: subpackage.name });
+  }
+  files.set("game.json", `${JSON.stringify(gameJson, null, 2)}\n`);
+  for (const name of PROJECT_FILES) {
+    if (name === "project.private.config.json" && !platform.hasPrivateConfig) continue;
+    const rendered = renderTemplate(join(platformRoot, `${name}.template`), templateValues);
+    files.set(name, projectFile(name, rendered, options, warnings));
   }
   files.set("js/defold_engine.js", engineModule.text);
 
@@ -298,18 +419,34 @@ export function exportMiniGame(rawOptions) {
   // Loose files the game reaches by path: InnerAudio sources, share images.
   if (options.assetsDir) {
     const skipped = new Set();
-    for (const file of listFiles(options.assetsDir)) {
-      if (file.split("/").some((part) => part.startsWith("."))) continue;
-      const dot = file.lastIndexOf(".");
-      const extension = dot === -1 ? "" : file.slice(dot + 1).toLowerCase();
-      if (!UPLOADABLE_EXTENSIONS.has(extension)) skipped.add(extension === "" ? "(none)" : `.${extension}`);
-      files.set(`${ASSETS_DIRECTORY}/${file}`, readFileSync(join(options.assetsDir, file)));
-    }
+    addLooseFiles(files, options.assetsDir, ASSETS_DIRECTORY, skipped);
     if (skipped.size > 0) {
       warnings.push(
         `assets with these extensions are not on the upload whitelist and may be left out by the developer tool: ${[...skipped].sort().join(", ")}`,
       );
     }
+  }
+
+  // The game's own subpackages: files it downloads when it asks for them,
+  // outside the main package and its limit.
+  const subpackageReport = [];
+  for (const subpackage of options.subpackages) {
+    const skipped = new Set();
+    const count = addLooseFiles(files, subpackage.dir, subpackage.name, skipped);
+    if (count === 0) {
+      throw new ExportError(`the folder of subpackage '${subpackage.name}' has no files: ${subpackage.dir}`);
+    }
+    if (skipped.size > 0) {
+      warnings.push(
+        `files in subpackage '${subpackage.name}' with these extensions are not on the upload whitelist `
+        + `and may be left out by the developer tool: ${[...skipped].sort().join(", ")}`,
+      );
+    }
+    // A host loads a subpackage by running its entry file; the folder may bring its own.
+    const entry = `${subpackage.name}/${SUBPACKAGE_ENTRY}`;
+    const generated = !files.has(entry);
+    if (generated) files.set(entry, readFileSync(join(RUNTIME_ROOT, "common", "engine_game.js")));
+    subpackageReport.push({ name: subpackage.name, files: count + (generated ? 1 : 0), bytes: 0 });
   }
 
   const bootConfig = {
@@ -321,6 +458,7 @@ export function exportMiniGame(rawOptions) {
     engineVersion,
     engineSdkSha1: bundle.dmloader.engineSdkSha1,
     engineSubpackage: ENGINE_SUBPACKAGE,
+    subpackages: options.subpackages.map((subpackage) => subpackage.name),
     wasm: { candidates: [wasmPath], size: bundle.wasm.length, packagedSize: wasmData.length },
     archive,
     heapSizeBytes: options.heapSizeBytes,
@@ -340,15 +478,23 @@ export function exportMiniGame(rawOptions) {
 
   // 6. Package limits
   let mainBytes = 0;
+  let engineBytes = 0;
   let totalBytes = 0;
+  const subpackageBytes = new Map(options.subpackages.map((subpackage) => [subpackage.name, 0]));
   for (const [path, content] of files) {
     const size = typeof content === "string" ? Buffer.byteLength(content, "utf8") : content.length;
+    const slash = path.indexOf("/");
+    const top = slash === -1 ? null : path.slice(0, slash);
     totalBytes += size;
-    if (!path.startsWith(`${ENGINE_SUBPACKAGE}/`)) mainBytes += size;
+    if (top === ENGINE_SUBPACKAGE) engineBytes += size;
+    else if (subpackageBytes.has(top)) subpackageBytes.set(top, subpackageBytes.get(top) + size);
+    else mainBytes += size;
   }
+  for (const entry of subpackageReport) entry.bytes = subpackageBytes.get(entry.name);
   const sizes = {
     main: mainBytes,
-    engineSubpackage: totalBytes - mainBytes,
+    engineSubpackage: engineBytes,
+    subpackages: Object.fromEntries(subpackageBytes),
     total: totalBytes,
     wasm: bundle.wasm.length,
     wasmPackaged: wasmData.length,
@@ -365,7 +511,7 @@ export function exportMiniGame(rawOptions) {
   if (totalBytes > options.totalLimit) {
     throw new ExportError(
       `the package is ${formatBytes(totalBytes)}, above the ${formatBytes(options.totalLimit)} limit of ${platform.displayName}`,
-      { hint: "Reduce the game archive (texture compression, Live Update), or raise the limit with --total-limit-mb if your account allows it." },
+      { hint: "Reduce the game archive (texture compression) or the subpackages, or raise the limit with --total-limit-mb if your account allows it." },
     );
   }
   if (!options.brotli) {
@@ -381,6 +527,7 @@ export function exportMiniGame(rawOptions) {
     outputDir: options.outputDir,
     files,
     force: options.force,
+    shared: PROJECT_FILES,
     manifest: {
       toolVersion: matrix.toolVersion,
       bridgeAbi: matrix.bridgeAbi,
@@ -416,6 +563,7 @@ export function exportMiniGame(rawOptions) {
         memory: scan.memory,
       },
       archiveFiles: archive.map((file) => ({ name: file.name, size: file.size, pieces: file.pieces.length })),
+      subpackages: subpackageReport,
       fileCount: files.size,
     },
   };

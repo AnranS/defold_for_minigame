@@ -328,6 +328,175 @@ for (const defoldVersion of DEFOLD_VERSIONS) {
   });
 }
 
+test("the developer tool's project files keep what the tool wrote into them", (t) => {
+  const workspace = makeWorkspace(t);
+  const output = workspace.outputDir("douyin");
+  workspace.export("douyin");
+  const file = join(output, "project.config.json");
+  const written = JSON.parse(readFileSync(file, "utf8"));
+
+  // Douyin's developer tool writes the file again, on one line, when it opens the project.
+  writeFileSync(file, JSON.stringify(written));
+  assert.deepEqual(workspace.export("douyin").warnings, []);
+
+  // Every developer tool stores what is changed in its project settings there.
+  writeFileSync(file, JSON.stringify({
+    ...written,
+    projectname: "Renamed in the tool",
+    setting: { urlCheck: true, es6: written.setting.es6, localPlugins: false },
+    addedByTheTool: { any: "thing" },
+  }));
+  workspace.export("douyin", { appId: "tt-another-app" });
+  let kept = JSON.parse(readFileSync(file, "utf8"));
+  assert.equal(kept.appid, "tt-another-app", "the App ID is the export's");
+  assert.equal(kept.compileType, "game");
+  assert.equal(kept.projectname, "Renamed in the tool");
+  assert.deepEqual(kept.addedByTheTool, { any: "thing" });
+  assert.equal(kept.setting.urlCheck, true, "a setting changed in the tool stays changed");
+  assert.equal(kept.setting.localPlugins, false);
+  assert.equal(kept.setting.minified, written.setting.minified, "a setting the file lost gets the export's default");
+
+  // A name given to the export is the name.
+  workspace.export("douyin", { name: "Named by the export" });
+  kept = JSON.parse(readFileSync(file, "utf8"));
+  assert.equal(kept.projectname, "Named by the export");
+  assert.equal(kept.setting.urlCheck, true);
+
+  // --force goes back to the export's own file.
+  workspace.export("douyin", { force: true });
+  assert.deepEqual(JSON.parse(readFileSync(file, "utf8")), written);
+
+  // A file that is no longer JSON cannot be kept; the export says that it replaced it.
+  writeFileSync(file, "{ broken");
+  const replaced = workspace.export("douyin");
+  assert.ok(replaced.warnings.some((warning) => /project\.config\.json was not valid JSON and was written anew/.test(warning)), replaced.warnings.join("; "));
+  assert.deepEqual(JSON.parse(readFileSync(file, "utf8")), written);
+
+  // The rest of the export is still guarded.
+  writeFileSync(join(output, "game.json"), "{}");
+  assert.throws(() => workspace.export("douyin"), /game\.json was modified after the last export/);
+});
+
+test("WeChat's private project file is the developer tool's as well", (t) => {
+  const workspace = makeWorkspace(t);
+  const output = workspace.outputDir("wechat");
+  workspace.export("wechat");
+  const file = join(output, "project.private.config.json");
+  const written = JSON.parse(readFileSync(file, "utf8"));
+  writeFileSync(file, JSON.stringify({ ...written, setting: { ...written.setting, urlCheck: false }, libVersion: "3.9.0" }, null, 4));
+  workspace.export("wechat");
+  const kept = JSON.parse(readFileSync(file, "utf8"));
+  assert.equal(kept.libVersion, "3.9.0");
+  assert.equal(kept.setting.urlCheck, false);
+  assert.equal(kept.appid, APP_ID);
+});
+
+for (const platform of PLATFORMS) {
+  test(`--subpackage turns a folder into a subpackage the game loads when it wants it (${platform})`, (t) => {
+    const workspace = makeWorkspace(t);
+    const levels = join(workspace.root, "levels");
+    mkdirSync(join(levels, "music"), { recursive: true });
+    writeFileSync(join(levels, "music", "boss.mp3"), Buffer.alloc(3000, 7));
+    writeFileSync(join(levels, "map.json"), "{}");
+    writeFileSync(join(levels, ".DS_Store"), "x");
+    const voices = join(workspace.root, "voices");
+    mkdirSync(voices);
+    writeFileSync(join(voices, "hello.wav"), Buffer.alloc(500, 1));
+    writeFileSync(join(voices, "game.js"), "// the game's own entry for this subpackage\n");
+
+    const plain = workspace.export(platform);
+    const result = workspace.export(platform, {
+      subpackages: [{ name: "levels", dir: levels }, { name: "voices", dir: voices }],
+    });
+    const output = workspace.outputDir(platform);
+
+    // The files are in the package, under the subpackage's name; hidden files stay out.
+    assert.deepEqual(listFiles(join(output, "levels")), ["game.js", "map.json", "music/boss.mp3"]);
+    assert.equal(readFileSync(join(output, "levels/music/boss.mp3")).length, 3000);
+    // Hosts load a subpackage by running its game.js. One is written unless the folder brings its own.
+    assert.match(readFileSync(join(output, "levels/game.js"), "utf8"), /subpackage/);
+    assert.equal(readFileSync(join(output, "voices/game.js"), "utf8"), "// the game's own entry for this subpackage\n");
+
+    // game.json declares them next to the engine, under the platform's spelling of the field.
+    const game = JSON.parse(readFileSync(join(output, "game.json"), "utf8"));
+    const field = platform === "douyin" ? "subPackages" : "subpackages";
+    assert.deepEqual(game[field], [
+      { root: "engine/", name: "engine" },
+      { root: "levels/", name: "levels" },
+      { root: "voices/", name: "voices" },
+    ]);
+
+    // They count towards the total, not towards the main package.
+    const onDisk = (folder) => listFiles(join(output, folder))
+      .reduce((sum, file) => sum + readFileSync(join(output, folder, file)).length, 0);
+    assert.equal(result.sizes.subpackages.levels, onDisk("levels"));
+    assert.equal(result.sizes.subpackages.levels, 3000 + 2 + readFileSync(join(output, "levels/game.js")).length);
+    assert.equal(result.sizes.subpackages.voices, onDisk("voices"));
+    assert.equal(result.sizes.engineSubpackage, onDisk("engine"));
+    assert.equal(result.sizes.engineSubpackage, plain.sizes.engineSubpackage);
+    assert.equal(
+      result.sizes.total,
+      result.sizes.main + result.sizes.engineSubpackage + result.sizes.subpackages.levels + result.sizes.subpackages.voices,
+    );
+    // The main package only grew by the two declarations and the list in the boot configuration.
+    assert.ok(result.sizes.main > plain.sizes.main && result.sizes.main < plain.sizes.main + 400, `${result.sizes.main}`);
+    assert.deepEqual(plain.sizes.subpackages, {});
+    assert.deepEqual(result.report.subpackages, [
+      { name: "levels", files: 3, bytes: result.sizes.subpackages.levels },
+      { name: "voices", files: 2, bytes: result.sizes.subpackages.voices },
+    ]);
+
+    // The runtime is told which subpackages exist, and the folders belong to the export.
+    assert.deepEqual(bootConfig(output).subpackages, ["levels", "voices"]);
+    assert.deepEqual(bootConfig(workspace.outputDir(platform)).engineSubpackage, "engine");
+    assert.ok(result.manifest.managed.includes("levels") && result.manifest.managed.includes("voices"));
+
+    // Exporting again without one of them removes its folder.
+    workspace.export(platform, { subpackages: [{ name: "levels", dir: levels }] });
+    assert.ok(existsSync(join(output, "levels/map.json")));
+    assert.ok(!existsSync(join(output, "voices")));
+    assert.deepEqual(JSON.parse(readFileSync(join(output, "game.json"), "utf8"))[field].map((entry) => entry.name), ["engine", "levels"]);
+  });
+}
+
+test("--subpackage refuses names and folders that cannot work", (t) => {
+  const workspace = makeWorkspace(t);
+  const folder = join(workspace.root, "extra");
+  mkdirSync(folder);
+  writeFileSync(join(folder, "a.bin"), "a");
+  const attempt = (subpackages) => () => workspace.export("wechat", { subpackages });
+  for (const name of ["engine", "js", "assets", "Engine", "game.js"]) {
+    assert.throws(attempt([{ name, dir: folder }]), /is used by the export itself/, name);
+  }
+  for (const name of ["", "with space", "a/b", "../up", ".hidden", "中文"]) {
+    assert.throws(attempt([{ name, dir: folder }]), /subpackage name/, JSON.stringify(name));
+  }
+  assert.throws(attempt([{ name: "extra", dir: folder }, { name: "extra", dir: folder }]), /declared twice/);
+  assert.throws(attempt([{ name: "extra", dir: join(workspace.root, "missing") }]), /does not exist/);
+  assert.throws(attempt([{ name: "extra", dir: folder }, { name: "Extra", dir: folder }]), /declared twice/);
+  assert.throws(attempt([{ name: "extra", dir: workspace.root }]), /must not contain one another/);
+  assert.throws(attempt([{ name: "extra" }]), /needs a folder/);
+  assert.throws(attempt("extra"), /list of \{ name, dir \}/);
+  mkdirSync(join(workspace.root, "empty"));
+  assert.throws(attempt([{ name: "empty", dir: join(workspace.root, "empty") }]), /has no files/);
+  // Nothing was written by any of the attempts.
+  assert.ok(!existsSync(workspace.outputDir("wechat")));
+});
+
+test("subpackages count towards the total limit and warn about extensions hosts drop", (t) => {
+  const workspace = makeWorkspace(t);
+  const big = join(workspace.root, "big");
+  mkdirSync(big);
+  writeFileSync(join(big, "video.mp4"), Buffer.alloc(900 * 1024));
+  writeFileSync(join(big, "source.psd"), "x");
+  const result = workspace.export("douyin", { subpackages: [{ name: "big", dir: big }] });
+  assert.ok(result.warnings.some((warning) => /\.psd/.test(warning) && /upload whitelist/.test(warning)));
+  assert.throws(
+    () => workspace.export("douyin", { subpackages: [{ name: "big", dir: big }], totalLimitMb: 0.5 }),
+    /above the .* limit/,
+  );
+});
+
 test("the project's html5.max_pixel_ratio is the default cap; the command line overrides it", (t) => {
   const projectCap = makeWorkspace(t, { defoldVersion: "1.14.1", highDpi: true, minPixelRatio: 1.5, maxPixelRatio: 3 });
   projectCap.export("wechat");

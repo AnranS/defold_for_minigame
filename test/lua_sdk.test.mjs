@@ -6,6 +6,7 @@ import test from "node:test";
 
 import { REPO_ROOT } from "../src/util.mjs";
 import { runtimeRealm } from "./helpers/runtime_realm.mjs";
+import { makeWorkspace } from "./helpers/workspace.mjs";
 
 // Defold runs Lua 5.1 semantics (LuaJIT on most platforms), so LuaJIT is the
 // faithful interpreter for the SDK. Without it these tests are skipped.
@@ -125,7 +126,38 @@ for (const platform of ["wechat", "douyin", "tiktok"]) {
     });
     assertAllPassed(results, 100);
     assert.ok(logs.some((line) => /^apitest pass=\d+ skip=\d+ info=\d+ fail=0$/.test(line)), logs.filter((line) => line.startsWith("apitest")).join("; "));
+    // This bridge was not told about any subpackage of the game, so the app does not ask for one.
+    assert.ok(logs.includes("skip subpackage_load exported without --subpackage extras=example/extras"), logs.join("\n"));
     assert.equal(host.crashed, null, "no test touches an API that ends the client");
+  });
+}
+
+for (const platform of ["wechat", "douyin", "tiktok"]) {
+  test(`the API test app loads and reads its extras subpackage in an exported ${platform} package`, { skip }, async (t) => {
+    // The whole way: the folder goes through the exporter, the package boots
+    // in the simulated host, and the app's tests talk to the loader's bridge.
+    const workspace = makeWorkspace(t);
+    const host = await workspace.run(platform, {
+      exportOptions: {
+        assetsDir: join(REPO_ROOT, "example", "assets"),
+        subpackages: [{ name: "extras", dir: join(REPO_ROOT, "example", "extras") }],
+      },
+    });
+    assert.deepEqual(host.calls.get("loadSubpackage"), [["engine"]], "starting the game leaves the extras where they are");
+
+    const { results, logs } = await runLua({
+      mode: "bridge",
+      scenario: "scenario_apitest.lua",
+      answer: (code) => host.bridge.run(code),
+      onSignal: () => {},
+    });
+    assertAllPassed(results, 100);
+    assert.ok(logs.some((line) => /^pass subpackage_load loaded 'extras', progress reached 100%$/.test(line)), logs.join("\n"));
+    assert.ok(logs.includes(platform === "tiktok"
+      ? "skip subpackage_read the host has no getFileSystemManager"
+      : "pass subpackage_read read extras/note.txt: loaded from the extras subpackage"), logs.join("\n"));
+    assert.ok(host.calls.get("loadSubpackage").some(([name]) => name === "extras"));
+    assert.equal(host.crashed, null);
   });
 }
 

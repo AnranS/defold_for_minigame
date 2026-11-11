@@ -25,6 +25,10 @@ test("parses flags, values, inline values, and repeatable options", () => {
   assert.equal(options["--bundle"], "b");
   assert.equal(options["--platform"], "wechat");
   assert.deepEqual(options["--engine-arg"], ["--a", "--b"]);
+  assert.deepEqual(
+    parseArguments(["export", "--subpackage", "levels=res/levels", "--subpackage=voices=/abs/a=b"]).options["--subpackage"],
+    ["levels=res/levels", "voices=/abs/a=b"],
+  );
   assert.equal(options["--no-brotli"], true);
   assert.throws(() => parseArguments(["--nope"]), /unknown option --nope/);
   assert.throws(() => parseArguments(["--bundle"]), /--bundle needs a value/);
@@ -49,8 +53,40 @@ test("export writes a project and prints the sizes and next steps", (t) => {
   assert.match(result.out, /main package\s+\d/);
   assert.match(result.out, /html5\.run\s+bridged to the minigame Lua module/);
   assert.match(result.out, /Open .* in WeChat DevTools/);
-  assert.match(result.out, /simulated host only/);
+  // What is said about validation follows the support matrix, platform by platform.
+  const verified = loadSupportMatrix().platformContracts.wechat.validation.devtoolCompile === "verified";
+  assert.match(result.out, verified ? /have run in the simulator of WeChat DevTools, and on no phone yet/ : /simulated host only/);
   assert.ok(existsSync(join(workspace.outputDir("wechat"), "game.json")));
+});
+
+test("--subpackage name=dir adds a subpackage and the summary lists it", (t) => {
+  const workspace = makeWorkspace(t);
+  const levels = join(workspace.root, "my levels=1");
+  mkdirSync(levels);
+  writeFileSync(join(levels, "map.json"), "{}");
+  const base = ["export", "--bundle", workspace.bundleDir, "--platform", "douyin", "--appid", APP_ID,
+    "--output", workspace.outputDir("douyin"), "--brotli-quality", "4"];
+
+  const result = run([...base, "--subpackage", `levels=${levels}`]);
+  assert.equal(result.code, 0, result.err);
+  // The name ends at the first "="; the rest is the folder, whatever it contains.
+  assert.match(result.out, /subpackage\s+levels\s+\d+ B in 2 files/);
+  assert.ok(existsSync(join(workspace.outputDir("douyin"), "levels/map.json")));
+  const game = JSON.parse(readFileSync(join(workspace.outputDir("douyin"), "game.json"), "utf8"));
+  assert.deepEqual(game.subPackages.map((entry) => entry.name), ["engine", "levels"]);
+
+  const json = run([...base, "--subpackage", `levels=${levels}`, "--json"]);
+  assert.equal(JSON.parse(json.out).sizes.subpackages.levels > 0, true);
+
+  for (const value of ["levels", "=dir", "levels="]) {
+    const wrong = run([...base, "--subpackage", value]);
+    assert.equal(wrong.code, 2, value);
+    assert.match(wrong.err, /--subpackage expects <name>=<dir>/);
+  }
+  const reserved = run([...base, "--subpackage", `engine=${levels}`]);
+  assert.equal(reserved.code, 1);
+  assert.match(reserved.err, /used by the export itself/);
+  assert.ok(run(["--help"]).out.includes("--subpackage <name>=<dir>"));
 });
 
 test("TikTok next steps name ttmg, and --json prints machine-readable output", (t) => {
@@ -58,6 +94,7 @@ test("TikTok next steps name ttmg, and --json prints machine-readable output", (
   const text = run(["export", "--bundle", workspace.bundleDir, "--platform", "tiktok", "--appid", "client-key",
     "--output", workspace.outputDir("tiktok"), "--brotli-quality", "4"]);
   assert.match(text.out, /ttmg init/);
+  assert.match(text.out, /simulated host only/);
   const json = run(["export", "--bundle", workspace.bundleDir, "--platform", "douyin", "--appid", "tt1",
     "--output", workspace.outputDir("douyin"), "--brotli-quality", "4", "--json"]);
   const parsed = JSON.parse(json.out);

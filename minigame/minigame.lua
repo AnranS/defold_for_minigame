@@ -175,7 +175,8 @@ function M.platform()
     return state.info.platform
 end
 
---- What the bridge reported at start-up: platform, capabilities, system, persistence, engineAudio.
+--- What the bridge reported at start-up: platform, capabilities, system, persistence, engineAudio,
+-- and subpackages, the names the export declared with --subpackage.
 function M.info()
     if not M.init() then
         return nil
@@ -769,7 +770,9 @@ end
 -- Subpackages
 -- ---------------------------------------------------------------------------
 
---- Loads a subpackage declared in game.json. callback(loaded, err), progress(percent)
+--- Loads a subpackage the export declared with --subpackage name=dir.
+-- Once loaded, its files are in the package under name/, for example as the
+-- source of minigame.inner_audio(). callback(loaded, err), progress(percent)
 function M.load_subpackage(name, callback, progress)
     if not M.init() then
         safe_call(callback, false, NOT_AVAILABLE)

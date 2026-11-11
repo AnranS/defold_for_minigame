@@ -31,6 +31,7 @@ test("answers the handshake expression without evaluating it", (t) => {
   assert.equal(info.persistence, "fs");
   assert.equal(info.pixelRatio, 2);
   assert.equal(info.capabilities.storage, true);
+  assert.deepEqual(info.subpackages, []);
   assert.equal(info.system.model, "iPhone 14");
   assert.equal(info.system.safeArea.top, 47);
   // In a browser the same expression is real JavaScript that yields "".

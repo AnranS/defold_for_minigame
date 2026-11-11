@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Evidence from a run in WeChat DevTools.
+ * Evidence from a run in a developer tool: WeChat DevTools or Douyin DevTools.
  *
  *   node scripts/devtools_probe.mjs inject  --project <export> [--label <name>]
  *        [--capture <ms> ...] [--touch <type>:<x>,<y>@<ms> ...] [--finish <ms>]
@@ -8,8 +8,8 @@
  *   node scripts/devtools_probe.mjs collect --storage <simulator user data> --out <folder> [--label <name>]
  *   node scripts/devtools_probe.mjs remove  --project <export>
  *
- * `inject` copies scripts/devtools/probe.js into an exported WeChat project
- * and makes game.js load it first. The probe mirrors the console to a file,
+ * `inject` copies scripts/devtools/probe.js into an exported WeChat or Douyin
+ * project and makes game.js load it first. The probe mirrors the console to a file,
  * saves what the canvas shows at the --capture times, and replays the --touch
  * steps (type is start, move, or end; x and y are fractions of the window).
  * Times are milliseconds after the engine is reported running. A probed run
@@ -79,8 +79,9 @@ export function inject({ project, label = "run", captures = [1500, 4000], touche
     throw new Error(`${directory} is not a project this tool exported`);
   }
   const manifest = JSON.parse(readFileSync(join(directory, ".defold-mini-game-export.json"), "utf8"));
-  if (manifest.platform && manifest.platform !== "wechat") {
-    throw new Error(`the probe is written for WeChat DevTools; this project was exported for ${manifest.platform}`);
+  // TikTok is left out on purpose: writing files there can end the client.
+  if (manifest.platform && !["wechat", "douyin"].includes(manifest.platform)) {
+    throw new Error(`the probe is written for WeChat and Douyin DevTools; this project was exported for ${manifest.platform}`);
   }
   const last = Math.max(0, ...captures, ...touches.map((step) => step.at));
   if (!Number.isInteger(captureSize) || captureSize < 16) throw new Error("--capture-size is the longer side of a saved frame, in pixels");

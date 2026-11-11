@@ -3,7 +3,7 @@
 This guide covers every exporter option, the differences between the three platforms, and the runtime behaviour of saves, audio, input, display, network, and package size. If this is your first export, start with the [quick start](QUICK_START.md).
 
 > [!WARNING]
-> v0.1.0 is experimental. Start-up, rendering, touch, saves, sound, and the Lua SDK have run with the real engine in the WeChat DevTools simulator. Everything else described here comes from the code and from simulated-host tests, and nothing has run on a device or in the Douyin and TikTok tools. Test the entries marked "untested" yourself in particular.
+> v0.1.0 is experimental. Start-up, rendering, touch, saves, sound, subpackages, and the Lua SDK have run with the real engine in the WeChat DevTools and Douyin DevTools simulators. Everything else described here comes from the code and from simulated-host tests, and nothing has run on a device or in TikTok's `ttmg dev`. Test the entries marked "untested" yourself in particular.
 
 ## 1. Requirements
 
@@ -69,14 +69,15 @@ Exit codes: `0` success, `1` the export was refused (the reason and a hint are p
 | `--max-pixel-ratio <n>` | the project's `html5.max_pixel_ratio`, or `2` when it has none | Upper bound of the automatic ratio |
 | `--engine-audio <auto\|on\|off>` | `auto` | Whether the engine mixer gets an audio context. `auto` keeps it off on TikTok |
 | `--persistence <auto\|fs\|storage\|off>` | `auto` | Where saves go. `auto` uses key-value storage on TikTok and files elsewhere |
-| `--assets <dir>` | none | Copy a folder of loose files into the package as `assets/` |
+| `--assets <dir>` | none | Copy a folder of loose files into the package as `assets/`, inside the main package |
+| `--subpackage <name>=<dir>` | none | Ship a folder as a subpackage the game loads with `minigame.load_subpackage("<name>")`; repeatable. See [Package size and subpackages](#12-package-size-and-subpackages) |
 | `--loading-text <text>` | per platform | Text of the host loading indicator; an empty string disables it |
 | `--engine-arg <arg>` | none | Extra engine argument; repeatable |
 | `--total-limit-mb <MB>` | the platform limit | Override the total package limit, for example 30 for Douyin with virtual payment enabled |
 | `--no-brotli` | off | Ship the engine binary uncompressed |
 | `--allow-wasm-feature <name>` | none | Export although the engine uses a blocked WebAssembly feature; repeatable |
 | `--allow-missing-bridge` | off | Export although the engine glue has no `eval` call; the Lua SDK is then unavailable |
-| `--force` | off | Replace exporter-owned files that were edited by hand |
+| `--force` | off | Replace exporter-owned files that were edited by hand, and put the project files back to the export's own version |
 | `--json` | off | Print the result as JSON |
 
 ## 4. What an export contains
@@ -102,10 +103,11 @@ Exit codes: `0` success, `1` the export was refused (the reason and a hint are p
 │   ├── game.js                     placeholder
 │   ├── dmengine.wasm.br            engine binary, Brotli-compressed
 │   └── archive/*.bin               game archive
-└── assets/                         only with --assets
+├── assets/                         only with --assets
+└── <name>/                         one per --subpackage: your files and a placeholder game.js
 ```
 
-The main package is everything outside `engine/`: about 0.42 MB with the stock Defold 1.14.1 engine.
+The main package is everything outside `engine/` and your own subpackages: about 0.42 MB with the stock Defold 1.14.1 engine.
 
 The extra `.bin` on the archive files is deliberate. WeChat only uploads files with whitelisted extensions, and `.arcd`, `.arci`, `.dmanifest`, `.projectc`, and `.der` are not on the list.
 
@@ -282,6 +284,8 @@ node bin/defold-minigame.mjs export ... --assets ./minigame_assets
 # ./minigame_assets/audio/bgm.mp3 → assets/audio/bgm.mp3 in the package
 ```
 
+Files from `--assets` count towards the 4 MB of the main package. Put a lot of audio into [a subpackage of your own](#your-own-subpackages) instead.
+
 `--engine-audio on` forces the engine mixer on for TikTok. That combination is untested, and the same playback pattern crashed the client in godot_for_minigame's device tests.
 
 ## 9. Input
@@ -316,7 +320,47 @@ The export checks the main package and the total against the platform limits and
 | Engine binary | `engine` subpackage | 2.89 MB, 0.92 MB after Brotli |
 | Game archive | `engine` subpackage | depends on the game |
 
+| Files from `--assets` | main package | depends on the game |
+| Files from `--subpackage` | a subpackage each | depends on the game |
+
 The archive can only ship in the package; it cannot be loaded from a CDN. Over the total limit, the only option is a smaller archive: compress textures, drop unused assets, or split content out with Defold's Live Update (untested in mini games).
+
+### Your own subpackages
+
+Loose files the game reaches by path (audio, images, data) can ship as a subpackage. A subpackage is outside the 4 MB of the main package and is not downloaded at start-up; the game loads it when it needs it.
+
+```bash
+node bin/defold-minigame.mjs export ... \
+  --subpackage levels=./minigame_levels \
+  --subpackage voices=./minigame_voices
+# ./minigame_levels/boss.mp3 → levels/boss.mp3 in the package, part of the subpackage "levels"
+```
+
+The export copies each folder into a folder of the subpackage's name and declares it in `game.json` under the platform's field (`subpackages` or `subPackages`). A host loads a subpackage by running the `game.js` at its root; the export adds an empty one unless the folder brings its own.
+
+In the game:
+
+```lua
+minigame.load_subpackage("levels", function(loaded, err)
+    if not loaded then
+        print("levels did not load:", err)
+        return
+    end
+    local bgm = minigame.inner_audio("levels/boss.mp3", { loop = true })
+    bgm:play()
+end, function(percent)
+    print("levels", percent, "%")
+end)
+```
+
+- Until it is loaded, the files of a subpackage do not exist; afterwards their path is `name/file`. Loading a subpackage that is already loaded succeeds at once.
+- `minigame.info().subpackages` lists the names this export declared. The host refuses a name that was not declared, and the callback gets its message.
+- A name starts with a letter and uses letters, digits, `-`, and `_`, 32 characters at most. It cannot be a name the export uses itself (`engine`, `js`, `assets`).
+- Subpackages count towards the total limit, not the main package. WeChat does not limit the size of one regular subpackage; on Douyin one subpackage cannot be larger than the total limit.
+- Hidden files (names that start with `.`) are not copied. Files whose extension is not on WeChat's upload whitelist get a warning: the developer tool may leave them out of the upload.
+- A subpackage holds files the game reads by path, nothing else. The content of the Defold archive (collections, atlases, scripts) is read whole by the engine at start-up and cannot be split into one.
+
+This path has run in WeChat DevTools and Douyin DevTools with the API test app: loading the subpackage, reading a text file from it, and playing a sound from it. On TikTok it only passes the simulated-host tests; a game cannot touch the file system there, so the files of a subpackage are used through host APIs such as `minigame.inner_audio()`.
 
 **Memory.** The initial WebAssembly heap is the project's `html5.heap_size`, 256 MB by default. WeChat's iOS high-performance mode limits memory to 1 GB or 1.4 GB, and low-end phones have less, so set it to a smaller value that fits what the game really uses.
 
@@ -325,8 +369,9 @@ The archive can only ship in the package; it cannot be loaded from a CDN. Over t
 Exporting into the same folder again is safe.
 
 - Every file is first written and verified in a staging folder beside the output, then swapped in under a lock.
-- The tool only replaces the top-level paths it owns: `game.js`, `game.json`, `project.config.json`, `project.private.config.json`, `adapter.js`, `js/`, `engine/`, `assets/`, and the manifest. Files and folders with other names are left alone.
+- The tool only replaces the top-level paths it owns: `game.js`, `game.json`, `project.config.json`, `project.private.config.json`, `adapter.js`, `js/`, `engine/`, `assets/`, the folders of the subpackages you declared, and the manifest. Files and folders with other names are left alone. The folder of a subpackage you no longer declare is removed by the next export.
 - If a file under those paths was edited by hand, or an unknown file appeared there, the export stops and lists them. Pass `--force` once you are sure you want to discard those changes.
+- The two project files are the exception. The export creates them, and from then on they are the developer tool's: Douyin DevTools rewrites `project.config.json` as soon as it opens the project, and the project settings you change in a tool are stored there. A later export keeps what the file holds and only brings the App ID and the project type up to date, and the project name when you pass `--name`. `--force` puts the export's own version back.
 - A failed export leaves the previous export untouched.
 - If the process is killed during the swap, a `.lock`, `.staging-*`, or `.backup-*` stays beside the output. The next export stops and reports those paths so you can compare them before cleaning up.
 
@@ -334,14 +379,15 @@ Exporting into the same folder again is safe.
 
 | Feature | Status |
 |---|---|
-| Sprites, text, GUI | ran in WeChat DevTools |
+| Sprites, text, GUI | ran in WeChat DevTools and Douyin DevTools |
 | Particles, tile maps, physics, 3D | engine features, untested |
-| Touch | ran in WeChat DevTools; multi-touch passes simulated-host tests |
-| `sys.save` / `sys.load` | ran in WeChat DevTools, across restarts; `io.*` passes simulated-host tests |
+| Touch | ran in WeChat DevTools and Douyin DevTools; multi-touch passes simulated-host tests |
+| `sys.save` / `sys.load` | ran in WeChat DevTools and Douyin DevTools, across restarts; `io.*` passes simulated-host tests |
 | `http.request` | passes simulated-host tests |
 | `gui.show_keyboard` | passes simulated-host tests; basic |
-| Engine sound | WeChat: ran in WeChat DevTools; Douyin: passes simulated-host tests; TikTok: off by default |
-| The `minigame` module | every unattended test of the API test app passes in WeChat DevTools; login, modal, clipboard, sharing, ads, and payment need a tap and were not run |
+| Engine sound | WeChat and Douyin: ran in their developer tools; TikTok: off by default |
+| The `minigame` module | every unattended test of the API test app passes in WeChat DevTools and Douyin DevTools; login, modal, clipboard, sharing, ads, and payment need a tap and were not run |
+| Your own subpackages (`--subpackage`) | ran in WeChat DevTools and Douyin DevTools: loading, reading a file, playing audio; TikTok passes simulated-host tests |
 | JavaScript through `html5.run` | not supported |
 | WebAssembly threads, SIMD, exceptions | not supported; blocked at export |
 | Native extensions with JavaScript libraries | untested |
@@ -357,7 +403,7 @@ This is not hypothetical: Defold 1.14.1 rewrote the loader's start-up flow. Up t
 
 | Defold | Loader design | Status |
 |---|---|---|
-| 1.14.1 | session (`GameStartup`) | static check passes; covered by simulated-host tests; ran in WeChat DevTools |
+| 1.14.1 | session (`GameStartup`) | static check passes; covered by simulated-host tests; ran in WeChat DevTools and Douyin DevTools |
 | 1.14.0 | legacy (`_preloadAndCallMain`) | static check passes; covered by simulated-host tests |
 
 [`support-matrix.json`](../support-matrix.json) records the checked versions and how far each was validated. A version that is not listed can still be exported; the result carries a warning.
@@ -370,7 +416,7 @@ node scripts/verify_engine.mjs --version 1.14.0 --sha1 d295ed4edff2e490727198357
 node scripts/verify_engine.mjs --version 1.14.2 --sha1 <sha1> --channel alpha  # a pre-release build
 ```
 
-To try a real engine in a developer tool without installing Defold, `scripts/fetch_example_bundle.mjs` turns one of the examples on defold.com into an HTML5 bundle, and `scripts/devtools_probe.mjs` collects the console log and frames of a run in WeChat DevTools. The [release process](RELEASING.md) describes both.
+To try a real engine in a developer tool without installing Defold, `scripts/fetch_example_bundle.mjs` turns one of the examples on defold.com into an HTML5 bundle, and `scripts/devtools_probe.mjs` collects the console log and frames of a run in WeChat DevTools or Douyin DevTools. The [release process](RELEASING.md) describes both.
 
 ## 16. FAQ
 
@@ -381,7 +427,10 @@ The engine was built with those features, usually a custom engine or the threade
 This Defold version changed the structure of its loader. Please report it with the Defold version.
 
 **`loadSubpackage` fails in the developer tool.**
-Make sure you imported the whole output folder as a mini game. WeChat's tourist mode does not support subpackages; use a real App ID.
+Make sure you imported the whole output folder as a mini game. WeChat's tourist mode does not support subpackages; use a real App ID. If it is a subpackage of your own that fails, check that the export declared the name with `--subpackage`: it is then listed in `minigame.info().subpackages`.
+
+**Does an export still work after Douyin DevTools opened the project?**
+Yes. The tool rewrites `project.config.json`, and the export treats that file as the developer tool's; see [Exporting again](#13-exporting-again).
 
 **The game starts and the screen stays black.**
 Look for shader errors in the console first. On old iOS a black screen usually means the WebGL 1 shaders were left out; see [section 2](#2-building-the-html5-bundle).

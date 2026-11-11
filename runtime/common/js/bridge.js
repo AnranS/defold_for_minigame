@@ -93,7 +93,7 @@ function fromWire(value, depth = 0) {
 
 /**
  * @param {object} runtime PlatformRuntime
- * @param {{ toolVersion?: string, engineAudio?: boolean, persistence?: string, pixelRatio?: number }} details
+ * @param {{ toolVersion?: string, engineAudio?: boolean, persistence?: string, pixelRatio?: number, subpackages?: string[] }} details
  */
 function createBridge(runtime, details = {}) {
   const api = runtime.api;
@@ -175,6 +175,8 @@ function createBridge(runtime, details = {}) {
       engineAudio: details.engineAudio === true,
       persistence: details.persistence || "memory",
       pixelRatio: details.pixelRatio || 1,
+      // The game's own subpackages, by the name minigame.load_subpackage() takes.
+      subpackages: Array.isArray(details.subpackages) ? details.subpackages.map(String) : [],
       system: toWire({
         platform: system.platform, system: system.system, model: system.model, brand: system.brand,
         language: system.language, version: system.version, SDKVersion: system.SDKVersion,

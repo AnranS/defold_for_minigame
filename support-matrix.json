@@ -48,7 +48,7 @@
       "validation": {
         "exportSmoke": "automated",
         "simulatedHost": "automated",
-        "devtoolCompile": "not-run",
+        "devtoolCompile": "verified",
         "realDevice": "not-run"
       }
     },
@@ -133,7 +133,7 @@
         "wasmFeatureScan": "verified",
         "devtool": {
           "wechat": "verified",
-          "douyin": "not-run",
+          "douyin": "verified",
           "tiktok": "not-run"
         },
         "realDevice": {
@@ -160,12 +160,37 @@
         "saves",
         "engine sound",
         "host audio",
-        "Lua SDK"
+        "Lua SDK",
+        "subpackages"
       ],
-      "result": "38 of 38 unattended API tests passed; the other 15 need a tap or leave the game and were not run",
+      "result": "41 of 41 unattended API tests passed, among them loading a subpackage of the game, reading a file from it and playing a sound from it; the other 15 need a tap or leave the game and were not run",
       "zh": {
         "bundle": "本仓库的 API 功能测试应用，用 bob.jar 构建",
-        "result": "38 项自动测试全部通过；另外 15 项需要人点一下或会离开游戏，没有运行"
+        "result": "41 项自动测试全部通过，其中包括加载游戏自己的分包、读取分包里的文件、播放分包里的声音；另外 15 项需要人点一下或会离开游戏，没有运行"
+      }
+    },
+    {
+      "date": "2026-11-11",
+      "platform": "douyin",
+      "host": "Douyin DevTools 4.5.7, simulator, mini-game core 4.33.0.1",
+      "defoldVersion": "1.14.1",
+      "engineSha1": "ee283d4dad9fa451dd6399d83602e1dc25133681",
+      "channel": "stable",
+      "bundle": "the API test app in this repository, built with bob.jar",
+      "checks": [
+        "start-up",
+        "rendering",
+        "touch",
+        "saves",
+        "engine sound",
+        "host audio",
+        "Lua SDK",
+        "subpackages"
+      ],
+      "result": "41 of 41 unattended API tests passed, among them loading a subpackage of the game, reading a file from it and playing a sound from it; taps and swipes sent by the tool reached the buttons, and the launch count kept by sys.save survived restarts; the other 15 tests need a tap or leave the game and were not run",
+      "zh": {
+        "bundle": "本仓库的 API 功能测试应用，用 bob.jar 构建",
+        "result": "41 项自动测试全部通过，其中包括加载游戏自己的分包、读取分包里的文件、播放分包里的声音；工具发出的点击和滑动能点到按钮，sys.save 记的启动次数在重启后还在；另外 15 项需要人点一下或会离开游戏，没有运行"
       }
     },
     {

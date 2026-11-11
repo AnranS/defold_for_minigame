@@ -23,6 +23,8 @@ import vm from "node:vm";
 import { brotliDecompressSync } from "node:zlib";
 
 const USER_DATA_PREFIX = { wechat: "wxfile://usr", douyin: "ttfile://user", tiktok: "ttfile://user" };
+/** The game.json field each host reads its subpackages from; the other spelling is ignored. */
+const SUBPACKAGE_FIELD = { wechat: "subpackages", douyin: "subPackages", tiktok: "subpackages" };
 
 function mapNames(names) {
   return names.split(",").map((part) => part.trim()).filter(Boolean)
@@ -147,10 +149,22 @@ export function createHost(options) {
     const clean = posix.normalize(text.replace(/^\/+/, ""));
     if (clean.startsWith("..")) throw hostError(`fail no such file or directory ${text}`);
     const top = clean.split("/")[0];
-    if (top === "engine" && !state.loadedSubpackages.has("engine")) {
-      throw hostError(`fail no such file or directory ${text} (subpackage 'engine' is not loaded)`);
+    if (declaredSubpackages().has(top) && !state.loadedSubpackages.has(top)) {
+      throw hostError(`fail no such file or directory ${text} (subpackage '${top}' is not loaded)`);
     }
     return { kind: "package", full: join(packageDir, clean) };
+  }
+
+  /**
+   * The subpackages the package declares, under the field this host reads.
+   * Their files are not on the device until loadSubpackage has run.
+   */
+  function declaredSubpackages() {
+    const manifest = join(packageDir, "game.json");
+    // Single runtime modules are loaded without a package around them.
+    if (!existsSync(manifest)) return new Set(["engine"]);
+    const entries = JSON.parse(readFileSync(manifest, "utf8"))[SUBPACKAGE_FIELD[platform]] || [];
+    return new Set(entries.map((entry) => String(entry.name)));
   }
 
   // ── file system manager ─────────────────────────────────────────
@@ -365,6 +379,10 @@ export function createHost(options) {
         for (const handler of progressHandlers) handler({ progress: 50, totalBytesWritten: 1, totalBytesExpectedToWrite: 2 });
         if (options.failSubpackage) {
           if (opts.fail) opts.fail({ errMsg: "loadSubpackage:fail module not found" });
+          return;
+        }
+        if (!declaredSubpackages().has(opts.name)) {
+          if (opts.fail) opts.fail({ errMsg: `loadSubpackage:fail the subpackage '${opts.name}' is not declared in game.json` });
           return;
         }
         state.loadedSubpackages.add(opts.name);

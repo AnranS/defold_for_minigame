@@ -20,14 +20,14 @@
 
 > [!WARNING]
 > **This is v0.1.0, an experimental release.**
-> Verified: more than 200 automated tests, a static check against the stock Defold 1.14.0 and 1.14.1 engines, and the real engine running in the WeChat DevTools simulator: start-up, rendering, touch, saves, sound, and the Lua SDK.
-> Not verified: the Douyin and TikTok developer tools, and every real device. Pass the developer tool and a real device yourself before you ship. See [Validation status](#validation-status).
+> Verified: more than 200 automated tests, a static check against the stock Defold 1.14.0 and 1.14.1 engines, and the real engine running in the WeChat DevTools and Douyin DevTools simulators: start-up, rendering, touch, saves, sound, subpackages, and the Lua SDK.
+> Not verified: TikTok's `ttmg dev`, and every real device. Pass the developer tool and a real device yourself before you ship. See [Validation status](#validation-status).
 
 <p align="center">
   <img src="docs/screenshots/apitest-wechat-devtools-1.png" width="270" alt="The API test app in the WeChat DevTools simulator: the Setup, Generic access, Account, and Key-value storage groups, with every unattended test green" />
-  <img src="docs/screenshots/apitest-wechat-devtools-2.png" width="270" alt="The API test app in the WeChat DevTools simulator, scrolled down: the System, Sharing, Ads, and Payment groups" />
+  <img src="docs/screenshots/apitest-douyin-devtools-2.png" width="270" alt="The API test app in the Douyin DevTools simulator, scrolled to the end: the Host audio, Subpackages, and Engine groups, with loading, reading, and playing from a subpackage green" />
 </p>
-<p align="center"><sub>Real screenshots: the API test app in this repository on Defold 1.14.1, in the WeChat DevTools simulator. Green passed; purple needs a tap or leaves the game.</sub></p>
+<p align="center"><sub>Real screenshots: the API test app in this repository on Defold 1.14.1, in the WeChat DevTools simulator on the left and the Douyin DevTools simulator on the right. Green passed; purple needs a tap or leaves the game.</sub></p>
 
 <table>
   <tr>
@@ -88,10 +88,12 @@ minigame.show_toast("Level " .. minigame.storage_get("level", "1"))
 | Platform | Runtime API | `game.json` subpackage field | Total limit | Status |
 |---|---|---|---|---|
 | WeChat Mini Game | `wx` | `subpackages` | 30 MB | 🧪 Experimental: the real engine runs in WeChat DevTools; no device yet |
-| Douyin Mini Game | `tt` | `subPackages` | 20 MB | 🧪 Experimental: simulated-host tests only |
+| Douyin Mini Game | `tt` | `subPackages` | 20 MB | 🧪 Experimental: the real engine runs in Douyin DevTools; no device yet |
 | TikTok Mini Game Native | `TTMinis.game` | `subpackages` | 30 MB | 🧪 Experimental: simulated-host tests only; needs TikTok 43.4.0+ |
 
 The main package limit is 4 MB everywhere. An empty project exported with the stock Defold 1.14.1 engine has a main package of about 0.42 MB and an engine subpackage of about 0.92 MB (the engine binary goes from 2.89 MB to 0.92 MB); the rest is your game's assets.
+
+Files of your own can be a subpackage too: export with `--subpackage levels=path/to/levels` and that folder becomes the subpackage `levels`, outside the 4 MB of the main package. After `minigame.load_subpackage("levels", ...)` the game finds the files under `levels/`. See the [usage guide](docs/USAGE.md#12-package-size-and-subpackages).
 
 <p align="center">
   <img src="docs/images/package-en.svg" width="860" alt="The main package holds only the entry, the configuration, the adapter, and the engine module, about 0.42 MB; the engine subpackage holds the stock engine compressed with Brotli and the game archive" />
@@ -101,10 +103,10 @@ The main package limit is 4 MB everywhere. An empty project exported with the st
 
 | Defold | Engine SHA1 | Loader | Static check | Developer tool | Device |
 |---|---|---|---|---|---|
-| **`1.14.1`** (latest) | `ee283d4dad9f` | session | ✅ | 🟡 WeChat | ⬜ |
+| **`1.14.1`** (latest) | `ee283d4dad9f` | session | ✅ | 🟡 WeChat, Douyin | ⬜ |
 | `1.14.0` | `d295ed4edff2` | legacy | ✅ | ⬜ | ⬜ |
 
-🟡 means some of the three platforms: the name says which. Defold rewrote the start-up flow of its HTML5 loader in 1.14.1, so the runtime has two boot paths and the tests cover both.
+🟡 means some of the three platforms: the names say which. Defold rewrote the start-up flow of its HTML5 loader in 1.14.1, so the runtime has two boot paths and the tests cover both.
 
 A pre-release build of 1.14.2 passes the same static check, and four examples from defold.com that were built with it ran in WeChat DevTools. It joins the table when Defold releases it.
 
@@ -118,22 +120,23 @@ An export is not tied to a version number: every export checks that `dmloader.js
 | Simulated hosts | the real Defold 1.14.0 and 1.14.1 `dmloader.js` with an engine stand-in: boot, touch, keyboard, saves, audio, network in simulated `wx`, `tt`, and `TTMinis.game` | ✅ automated |
 | Lua integration | LuaJIT runs `minigame.lua` against the real JavaScript bridge | ✅ automated |
 | Static check | the stock Defold 1.14.0 and 1.14.1 engine glue and binary: structure, WebAssembly features, strict-mode compile | ✅ done |
-| Developer tools | the real engine and a real game bundle in WeChat DevTools; Douyin DevTools and `ttmg dev` not yet | 🟡 WeChat only |
+| Developer tools | the real engine and a real game bundle in WeChat DevTools and Douyin DevTools; `ttmg dev` not yet | 🟡 WeChat, Douyin |
 | Devices | iOS, Android | ⬜ not done |
 
-The engine stand-in is JavaScript that takes the place of the Emscripten glue in tests. It follows the real glue's contract, but it is not the real engine. The simulated-host tests therefore prove that the adapter's own logic is consistent; they do not prove that the real engine runs. The first run of the real engine found two things the stand-in had not: the engine sizes its canvas through `style.setProperty()`, and WeChat DevTools reports the system of the device it simulates, which sent the engine to WebGL 1. Both are fixed, and the stand-in and the tests now cover them.
+The engine stand-in is JavaScript that takes the place of the Emscripten glue in tests. It follows the real glue's contract, but it is not the real engine. The simulated-host tests therefore prove that the adapter's own logic is consistent; they do not prove that the real engine runs. The first run of the real engine found two things the stand-in had not: the engine sizes its canvas through `style.setProperty()`, and WeChat DevTools reports the system of the device it simulates, which sent the engine to WebGL 1. Both are fixed, and the stand-in and the tests now cover them. Douyin DevTools found two more: a tap sent by the tool is pressed and released within one frame, where the engine did not see it, and the tool rewrites `project.config.json` when it opens the project, which stopped the next export. Both are fixed as well.
 
-What ran in WeChat DevTools 36.6.0, with the evidence collected by `scripts/devtools_probe.mjs` (console log, frames from the canvas, replayed touches):
+What ran, with the evidence collected by `scripts/devtools_probe.mjs` (console log, frames from the canvas, replayed touches):
 
-- **Defold 1.14.1, the API test app in this repository**, built with `bob.jar`: all 38 unattended API tests passed. The other 15 need a tap or leave the game.
-- **Defold 1.14.2 (alpha), four examples from defold.com**: sprites and text rendered; replayed touches arrived with the expected coordinates; a value saved with `sys.save()` was on disk and was loaded after three restarts; the music example's sound was heard.
+- **WeChat DevTools 36.6.0, Defold 1.14.1, the API test app in this repository**, built with `bob.jar`: all 41 unattended API tests passed, among them loading a subpackage of the game, reading a file from it, and playing a sound from it. The other 15 need a tap or leave the game.
+- **Douyin DevTools 4.5.7, the same app**: the same 41 tests passed; taps and swipes sent by the tool reached the buttons; the launch count kept by `sys.save()` survived restarts.
+- **WeChat DevTools 36.6.0, Defold 1.14.2 (alpha), four examples from defold.com**: sprites and text rendered; replayed touches arrived with the expected coordinates; a value saved with `sys.save()` was on disk and was loaded after three restarts; the music example's sound was heard.
 
 [`support-matrix.json`](support-matrix.json) records each run under `hostRuns`.
 
 ## Known limitations
 
 - **No engine sound on TikTok by default.** Defold's mixer plays each audio block through a new AudioBuffer and BufferSource. That pattern crashed the TikTok client in godot_for_minigame's device tests, so it is off by default. Use `minigame.inner_audio()`, or enable it at your own risk with `--engine-audio on`.
-- **Assets must be in the package.** The game archive ships in the engine subpackage; loading it from a CDN is not supported, so the platform's total limit applies.
+- **Assets must be in the package.** The game archive ships in the engine subpackage; loading it from a CDN is not supported, so the platform's total limit applies. A `--subpackage` holds loose files the game reaches by path (audio, images, data); the content of the Defold archive cannot be split into one.
 - **`html5.run()` cannot run JavaScript.** Mini games disable `eval`; the function only carries the `minigame` module's commands.
 - **Old iOS needs WebGL 1 shaders.** The engine falls back to WebGL 1 below iOS 15.2, and Defold 1.14.1 and later leave those shaders out by default. Set `shader.exclude_gles_sm100 = 0` in `game.project`.
 - **Native extensions with JavaScript libraries are untested.** Their code ends up in the scoped module with the engine glue; nobody has tried it.
@@ -161,8 +164,11 @@ The Defold project in the repository root is a test app: every function of the `
 
 ```bash
 node bin/defold-minigame.mjs build --project . --bob path/to/bob.jar \
-  --platform wechat --appid <your app id> --assets example/assets --output ../apitest-wechat
+  --platform wechat --appid <your app id> --assets example/assets \
+  --subpackage extras=example/extras --output ../apitest-wechat
 ```
+
+`--subpackage extras=example/extras` ships `example/extras` as a subpackage. The tests of the "Subpackages" group load it, read a file from it, and play a sound from it; without the option they are skipped.
 
 Open the output in the developer tool, tap a button, and read the result under its group. Every result is also written to the host's console as `[apitest] <status> <id> <detail>`.
 

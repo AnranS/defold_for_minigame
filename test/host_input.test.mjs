@@ -8,6 +8,13 @@ const touch = (identifier, clientX, clientY) => ({ identifier, clientX, clientY 
 // The engine scales coordinates with floating-point division; compare to a micro-pixel.
 const round = (value) => Math.round(value * 1e6) / 1e6;
 const touches = (host) => plain(host.engine.touches).map((entry) => ({ ...entry, x: round(entry.x), y: round(entry.y) }));
+/** Runs frames one at a time, each followed by what the adapter does at the end of a frame. */
+async function frames(host, count = 1) {
+  for (let n = 0; n < count; n += 1) {
+    host.frame(1);
+    await host.settle(1);
+  }
+}
 
 for (const defoldVersion of DEFOLD_VERSIONS) for (const platform of PLATFORMS) {
   test(`touches reach the engine in canvas pixels (${platform}, Defold ${defoldVersion})`, async (t) => {
@@ -21,6 +28,7 @@ for (const defoldVersion of DEFOLD_VERSIONS) for (const platform of PLATFORMS) {
     const second = touch(2, 300, 400);
     host.touch("start", [first], [first]);
     host.touch("start", [first, second], [second]);
+    await frames(host);
     host.touch("move", [touch(1, 110, 220), second], [touch(1, 110, 220)]);
     host.touch("end", [second], [touch(1, 110, 220)]);
     host.touch("cancel", [], [second]);
@@ -75,6 +83,7 @@ test("a canvas that rejects property overrides is wrapped, and input still works
   assert.equal(host.engine.gl.created, true);
   assert.equal(host.engine.gl.isWebGL2, true);
   host.touch("start", [touch(0, 10, 20)]);
+  await frames(host);
   host.touch("end", [], [touch(0, 10, 20)]);
   assert.deepEqual(touches(host).map((entry) => entry.phase), ["began", "ended"]);
   assert.deepEqual(host.errors(), []);
@@ -87,8 +96,58 @@ test("a touchend on the canvas also reaches listeners on document, as it would b
   host.adapter.document.addEventListener("touchend", () => seen.push("touchend"));
   host.adapter.document.addEventListener("click", () => seen.push("click"));
   host.touch("start", [touch(0, 1, 1)]);
+  await frames(host);
   host.touch("end", [], [touch(0, 1, 1)]);
   assert.deepEqual(seen, ["touchend", "click"]);
+});
+
+test("a touch that begins and ends within one frame is still pressed for a frame", async (t) => {
+  // A finger rests on the screen for several frames. A developer tool's
+  // automation taps in an instant: both events arrive before the engine has
+  // run a frame, and an engine that polls its input once per frame would
+  // never see the press. Douyin DevTools' tap command showed exactly that.
+  const workspace = makeWorkspace(t);
+  const host = await workspace.run("douyin");
+  await frames(host, 2);
+  const finger = touch(0, 100, 200);
+  const phases = () => touches(host).map((entry) => entry.phase);
+
+  host.touch("start", [finger]);
+  host.touch("end", [], [finger]);
+  assert.deepEqual(phases(), ["began"], "the release waits until the engine has seen the press");
+  await frames(host);
+  assert.equal(host.engine.touchDownSeen, 1, "the engine's poll finds the touch down");
+  assert.deepEqual(phases(), ["began", "ended"], "then the release is delivered");
+  await frames(host);
+  assert.equal(host.engine.touchDownSeen, 0);
+  assert.equal(host.engine.framesWithTouch, 1);
+
+  // Two instant taps stay two taps: pressed, released, pressed, released.
+  for (let tap = 0; tap < 2; tap += 1) {
+    host.touch("start", [finger]);
+    host.touch("end", [], [finger]);
+  }
+  const seen = [];
+  for (let frame = 0; frame < 5; frame += 1) {
+    await frames(host);
+    seen.push(host.engine.touchDownSeen);
+  }
+  assert.deepEqual(seen, [1, 0, 1, 0, 0]);
+  assert.deepEqual(phases().slice(2), ["began", "ended", "began", "ended"]);
+
+  // A second finger in the same frame is not held back by the first.
+  const other = touch(1, 300, 400);
+  host.touch("start", [finger], [finger]);
+  host.touch("start", [finger, other], [other]);
+  assert.deepEqual(phases().slice(6), ["began", "began"]);
+  await frames(host);
+  assert.equal(host.engine.touchDownSeen, 2);
+
+  // An ordinary release, a frame or more after the press, is delivered at once.
+  host.touch("end", [other], [finger]);
+  host.touch("end", [], [other]);
+  assert.deepEqual(phases().slice(8), ["ended", "ended"]);
+  assert.deepEqual(host.errors(), []);
 });
 
 test("a host resize changes the canvas, and the engine notices on its next frame", async (t) => {

@@ -1,6 +1,6 @@
 # 快速开始
 
-从一个 Defold 工程到开发者工具里能打开的小游戏工程，一共四步。先说明一点：真实引擎目前只在微信开发者工具的模拟器里跑过。抖音和 TikTok 的开发者工具、以及所有真机都还没有验证，第四步很可能遇到需要反馈的问题。
+从一个 Defold 工程到开发者工具里能打开的小游戏工程，一共四步。先说明一点：真实引擎目前在微信开发者工具和抖音开发者工具的模拟器里跑过。TikTok 的 `ttmg dev` 和所有真机都还没有验证，在那里第四步很可能遇到需要反馈的问题。
 
 ## 准备
 
@@ -38,6 +38,7 @@ node bin/defold-minigame.mjs export \
 
 - `--platform` 取 `wechat`、`douyin` 或 `tiktok`。一次导出只针对一个平台，三个平台要导三次，各用各的输出目录。
 - `--output` 必须是空目录，或者是本工具之前导出过的目录。它不能放在 HTML5 包里面。
+- 音频、图片这类游戏按路径读取的文件，可以加 `--subpackage 名字=目录` 做成分包，不占主包的 4 MB，见[使用指南](USAGE_zh.md#12-包体与分包)。
 - 屏幕方向默认按工程的 `display.width` 和 `display.height` 判断，要指定就加 `--orientation portrait` 或 `landscape`。
 
 导出成功后会打印各部分的大小：
@@ -97,7 +98,7 @@ Exported MyGame (Defold 1.14.1) for WeChat Mini Game
 
 ### 抖音小游戏
 
-用抖音开发者工具导入输出目录，App ID 与导出时一致。
+用抖音开发者工具导入输出目录，项目类型选小游戏，App ID 与导出时一致。工具打开工程时会重写 `project.config.json`，这不影响之后向同一个目录再次导出。
 
 ### TikTok Mini Game
 

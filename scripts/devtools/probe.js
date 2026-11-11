@@ -1,7 +1,7 @@
 /**
- * A test-only probe for runs in WeChat DevTools. It is never part of an
- * export: scripts/devtools_probe.mjs copies it into an exported project and
- * makes game.js load it first.
+ * A test-only probe for runs in a developer tool: WeChat DevTools or Douyin
+ * DevTools. It is never part of an export: scripts/devtools_probe.mjs copies
+ * it into an exported project and makes game.js load it first.
  *
  * A mini game's console cannot be read from outside the developer tool, so
  * the probe mirrors it to a file in the game's user data folder, which the
@@ -28,8 +28,10 @@
 ;(function () {
   var CONFIG = /*CONFIG*/{ label: "run", captures: [1500, 4000], touches: [], finishAt: 6000, mute: true, storage: {}, captureSize: 720 };
 
-  var api = typeof wx !== "undefined" ? wx : null;
+  // WeChat calls its API object wx, Douyin calls it tt; the parts used here are the same.
+  var api = typeof wx !== "undefined" ? wx : (typeof tt !== "undefined" ? tt : null);
   if (!api || typeof api.getFileSystemManager !== "function") return;
+  var consoleLog = typeof console.log === "function" ? console.log.bind(console) : function () {};
   var G = typeof GameGlobal !== "undefined" ? GameGlobal : globalThis;
   var fs = api.getFileSystemManager();
   var started = Date.now();
@@ -52,7 +54,8 @@
   function write(line) {
     try { fs.appendFileSync(logPath, "[" + (Date.now() - started) + "ms] " + line + "\n", "utf8"); } catch (error) { /* nowhere to report it */ }
   }
-  function note(text) { summary.notes.push(text); write("[probe] " + text); }
+  // Notes also go to the console, for tools whose console can be read from outside.
+  function note(text) { summary.notes.push(text); write("[probe] " + text); consoleLog("[DefoldMiniGame][probe] " + text); }
   function saveSummary() {
     try { fs.writeFileSync(directory + "/summary.json", JSON.stringify(summary, null, 2), "utf8"); } catch (error) { /* ignored */ }
   }
@@ -102,10 +105,12 @@
   // Sound cannot be captured from here, but an engine that is mixing asks
   // the host's audio context for a buffer source per block and starts it.
   var muted = CONFIG.mute !== false;
-  if (typeof api.createWebAudioContext === "function") {
-    var createAudio = api.createWebAudioContext;
+  ["createWebAudioContext", "getAudioContext"].forEach(function (factory) {
+    if (typeof api[factory] !== "function") return;
+    var createAudio = api[factory];
     var audioWrapper = function () {
       var context = createAudio.apply(api, arguments);
+      if (!context || audioContexts.indexOf(context) !== -1) return context; // a host may hand out one shared context
       summary.audio = summary.audio || { contexts: 0, bufferSources: 0, started: 0, muted: muted };
       summary.audio.contexts += 1;
       audioContexts.push(context);
@@ -134,9 +139,9 @@
       } catch (error) { note("the audio context cannot be instrumented: " + describe(error)); }
       return context;
     };
-    try { api.createWebAudioContext = audioWrapper; } catch (error) { /* checked next */ }
-    if (api.createWebAudioContext !== audioWrapper) note("wx.createWebAudioContext cannot be wrapped; audio is neither counted nor muted");
-  }
+    try { api[factory] = audioWrapper; } catch (error) { /* checked next */ }
+    if (api[factory] !== audioWrapper) note("the host's " + factory + " cannot be wrapped; engine sound is neither counted nor muted");
+  });
   if (typeof api.createInnerAudioContext === "function") {
     var createInner = api.createInnerAudioContext;
     var innerWrapper = function () {
@@ -163,7 +168,7 @@
       return player;
     };
     try { api.createInnerAudioContext = innerWrapper; } catch (error) { /* checked next */ }
-    if (api.createInnerAudioContext !== innerWrapper) note("wx.createInnerAudioContext cannot be wrapped; host audio is neither counted nor muted");
+    if (api.createInnerAudioContext !== innerWrapper) note("the host's createInnerAudioContext cannot be wrapped; host audio is neither counted nor muted");
   }
 
   // ── touches: remember the handlers the adapter registers ───────────────
@@ -173,7 +178,7 @@
     if (typeof original !== "function") return;
     var wrapper = function (callback) { handlers[name].push(callback); return original.call(api, callback); };
     try { api[name] = wrapper; } catch (error) { /* checked next */ }
-    if (api[name] !== wrapper) note("wx." + name + " cannot be wrapped; replayed touches are unavailable");
+    if (api[name] !== wrapper) note("the host's " + name + " cannot be wrapped; replayed touches are unavailable");
   });
   function touch(name, x, y) {
     var point = { identifier: 0, clientX: x, clientY: y, pageX: x, pageY: y, screenX: x, screenY: y, force: 1 };
@@ -293,7 +298,9 @@
       });
       summary.finished = true;
       summary.finishedAfterMs = Date.now() - started;
-      write("[probe] finished " + JSON.stringify({ frames: summary.frames, errors: summary.errors, frameTime: summary.frameTime, audio: summary.audio, hostAudio: summary.hostAudio }));
+      var report = JSON.stringify({ frames: summary.frames, errors: summary.errors, frameTime: summary.frameTime, audio: summary.audio, hostAudio: summary.hostAudio });
+      write("[probe] finished " + report);
+      consoleLog("[DefoldMiniGame][probe] finished " + report);
       saveSummary();
     }, CONFIG.finishAt || 6000);
   });

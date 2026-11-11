@@ -52,9 +52,11 @@ function leftoverSiblings(outputDir) {
 
 /**
  * Decides whether the destination may be published into.
+ * `shared` names exporter-owned files that something else may rewrite: the
+ * developer tool's project files. They are not held to their recorded hash.
  * @returns {{ fresh: boolean, manifest: object|null }}
  */
-export function checkDestination(outputDir, { force = false } = {}) {
+export function checkDestination(outputDir, { force = false, shared = [] } = {}) {
   if (!existsSync(outputDir)) return { fresh: true, manifest: null };
   if (!isDirectory(outputDir)) throw new ExportError(`the output path exists and is not a directory: ${outputDir}`);
 
@@ -76,7 +78,7 @@ export function checkDestination(outputDir, { force = false } = {}) {
     if (!existsSync(full)) continue;
     const files = isDirectory(full) ? listFiles(full).map((file) => `${name}/${file}`) : [name];
     for (const file of files) {
-      if (file === MANIFEST_NAME || file.endsWith("/.DS_Store")) continue;
+      if (file === MANIFEST_NAME || file.endsWith("/.DS_Store") || shared.includes(file)) continue;
       const artifact = known.get(file);
       if (!artifact) {
         problems.push(`${file} was not written by the exporter`);
@@ -98,9 +100,9 @@ export function checkDestination(outputDir, { force = false } = {}) {
 
 /**
  * Publishes `files` into `outputDir`.
- * @param {{ outputDir: string, files: Map<string, Buffer|string>, manifest: object, force?: boolean }} input
+ * @param {{ outputDir: string, files: Map<string, Buffer|string>, manifest: object, force?: boolean, shared?: string[] }} input
  */
-export function publish({ outputDir, files, manifest, force = false }) {
+export function publish({ outputDir, files, manifest, force = false, shared = [] }) {
   const leftovers = leftoverSiblings(outputDir);
   if (leftovers.length > 0) {
     throw new ExportError(
@@ -108,7 +110,7 @@ export function publish({ outputDir, files, manifest, force = false }) {
       { hint: "Compare them with the output folder, archive what you need, then delete them and export again." },
     );
   }
-  checkDestination(outputDir, { force });
+  checkDestination(outputDir, { force, shared });
 
   const token = `${process.pid}-${randomBytes(4).toString("hex")}`;
   const staging = `${outputDir}.staging-${token}`;
@@ -163,7 +165,7 @@ export function publish({ outputDir, files, manifest, force = false }) {
     const movedOut = [];
     try {
       // The destination may have changed while the staging tree was built.
-      const current = checkDestination(outputDir, { force });
+      const current = checkDestination(outputDir, { force, shared });
       ensureDirectory(outputDir);
       mkdirSync(backup);
       const owned = new Set([...(current.manifest ? current.manifest.managed : []), ...topLevel]);

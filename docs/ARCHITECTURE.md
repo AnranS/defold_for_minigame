@@ -190,18 +190,34 @@ Nothing is written into the destination directly.
 5. On failure, restore the backup. On success, remove it.
 
 The exporter owns `game.js`, `game.json`, `project.config.json`,
-`project.private.config.json`, `adapter.js`, `js/`, `engine/`, `assets/`, and
-the manifest. Other top-level names are sidecars and are preserved. Before
-anything moves, every owned file is checked against the previous manifest:
-an edited file or an unknown file inside an owned directory stops the export
-unless `--force` is given.
+`project.private.config.json`, `adapter.js`, `js/`, `engine/`, `assets/`, the
+folder of every `--subpackage`, and the manifest. Other top-level names are
+sidecars and are preserved. Before anything moves, every owned file is checked
+against the previous manifest: an edited file or an unknown file inside an
+owned directory stops the export unless `--force` is given.
+
+The two project files are owned, but not held to their hash. A developer tool
+writes to them: Douyin DevTools re-serialises `project.config.json` when it
+opens the project, and every tool stores its project settings there. A later
+export starts from the file it finds, adds the keys of its template that are
+missing, and sets the App ID and the project type (and the name, when `--name`
+is given). `--force` writes the template.
+
+A `--subpackage name=dir` is a folder of loose files copied to `name/`, with a
+`game.js` entry, declared in `game.json` next to `engine`. The loader does not
+load it; the game does, with `minigame.load_subpackage()`, and the bridge
+reports the declared names at the handshake. It is counted in the total, not
+in the main package.
 
 The swap and its in-process rollback are transactional; they are not a
 crash-atomic primitive. A killed process can leave a `.lock`, `.staging-*`, or
 `.backup-*` beside the output, and the next export stops and reports it.
 
 导出不直接写目标目录：先在同级暂存目录生成并校验，再在锁内替换自己拥有的顶层路径，
-失败则回滚。其它顶层名称属于旁路文件，原样保留。这是事务语义，不是跨崩溃的原子
+失败则回滚。其它顶层名称属于旁路文件，原样保留。两个工程配置文件由导出创建，之后
+归开发者工具：再次导出保留其中已有的内容，只同步 App ID 和工程类型。`--subpackage`
+把一个散文件目录做成分包，加载器不加载它，由游戏调用 `minigame.load_subpackage()`
+按需加载。这是事务语义，不是跨崩溃的原子
 操作；进程被杀后留下的 lock、staging、backup 会被下一次导出报告出来。
 
 ## Version axes / 版本轴
@@ -260,6 +276,15 @@ real engine told it two things it did not know:
 Both are fixed, the stand-in now runs Emscripten's canvas-sizing code
 statement for statement, and tests reproduce both failures.
 
+Douyin DevTools ran the same app without a failure, and its command-line tool
+showed a third thing: a tap it sends is pressed and released within one frame.
+The engine samples the touch state once per frame, so it saw a touch that was
+never down. The adapter now counts frames, at the end of each
+`requestAnimationFrame` callback, and holds a release (and whatever follows
+it) that arrives in the frame of its own press until the engine has run a
+frame. Moves are never held. The stand-in records what its frame saw, and a
+test presses and releases between two frames.
+
 A mini game's console cannot be read from outside the developer tool, so
 `scripts/devtools_probe.mjs` injects a test-only module into an exported
 project. It mirrors the console to a file in the game's user data folder,
@@ -274,3 +299,6 @@ unless asked otherwise.
 画布的代码，测试能复现这两个失败。小游戏的控制台无法从开发者工具外部读取，所以
 `scripts/devtools_probe.mjs` 往导出工程里注入一个仅供测试的模块：把控制台镜像到
 用户数据目录、在指定帧之后复制帧缓冲、回放触摸、统计引擎提交的音频块，默认静音。
+抖音开发者工具里发现了第三件事：工具发出的点击，按下和抬起在同一帧内到达，而引擎
+每帧只采样一次触摸状态。适配层现在按帧计数，把和按下落在同一帧的抬起留到引擎跑完
+一帧之后再交付。

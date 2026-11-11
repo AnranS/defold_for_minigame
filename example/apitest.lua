@@ -21,6 +21,11 @@ local M = {}
 M.PLACEHOLDER_AD_UNIT = "adunit-0000000000000000"
 --- The audio file the app ships with --assets example/assets.
 M.TONE = "assets/tone.wav"
+--- The subpackage the app ships with --subpackage extras=example/extras, and what is in it.
+M.EXTRAS = "extras"
+M.EXTRAS_NOTE = "extras/note.txt"
+M.EXTRAS_NOTE_TEXT = "loaded from the extras subpackage"
+M.EXTRAS_CHIME = "extras/chime.wav"
 
 local function brief(value)
     if type(value) == "table" then
@@ -50,6 +55,30 @@ local function accepted(done, ok, what)
     else
         done("fail", "the host refused the call")
     end
+end
+
+--- Loads the extras subpackage and then calls fn(progress). Skips when the
+-- export was made without it: the host would refuse a name game.json lacks.
+local function with_extras(done, fn)
+    if not requires("loadSubpackage", done) then return end
+    local declared = false
+    for _, name in ipairs((minigame.info() or {}).subpackages or {}) do
+        declared = declared or name == M.EXTRAS
+    end
+    if not declared then
+        done("skip", "exported without --subpackage " .. M.EXTRAS .. "=example/extras")
+        return
+    end
+    local progress = nil
+    minigame.load_subpackage(M.EXTRAS, function(loaded, err)
+        if loaded then
+            fn(progress)
+        else
+            done("fail", err)
+        end
+    end, function(percent)
+        progress = percent
+    end)
 end
 
 M.sections = {
@@ -457,6 +486,50 @@ M.sections = {
                     end
                 end, function(percent)
                     progress = percent
+                end)
+            end },
+            { id = "subpackage_load", label = "load extras", auto = true, timeout = 15, run = function(done)
+                with_extras(done, function(progress)
+                    done("pass", "loaded '" .. M.EXTRAS .. "'" .. (progress and (", progress reached " .. tostring(progress) .. "%") or ""))
+                end)
+            end },
+            { id = "subpackage_read", label = "read from extras", auto = true, timeout = 15, run = function(done)
+                -- TikTok's file system is off limits to games; there the next test reads the subpackage.
+                if not requires("getFileSystemManager", done) then return end
+                with_extras(done, function()
+                    local files, err = minigame.create("getFileSystemManager")
+                    if not files then
+                        done("fail", err)
+                        return
+                    end
+                    local text, read_err = files:invoke("readFileSync", { M.EXTRAS_NOTE, "utf8" })
+                    files:destroy()
+                    if type(text) ~= "string" then
+                        done("fail", "could not read " .. M.EXTRAS_NOTE .. ": " .. brief(read_err))
+                    elseif text:gsub("%s+$", "") ~= M.EXTRAS_NOTE_TEXT then
+                        done("fail", M.EXTRAS_NOTE .. " holds something else: " .. brief(text))
+                    else
+                        done("pass", "read " .. M.EXTRAS_NOTE .. ": " .. M.EXTRAS_NOTE_TEXT)
+                    end
+                end)
+            end },
+            { id = "subpackage_audio", label = "play from extras", auto = true, timeout = 15, run = function(done)
+                if not requires("createInnerAudioContext", done) then return end
+                with_extras(done, function()
+                    local audio, err = minigame.inner_audio(M.EXTRAS_CHIME, { volume = 0.4 })
+                    if not audio then
+                        done("fail", err)
+                        return
+                    end
+                    audio.object:on("onError", function(event)
+                        audio:destroy()
+                        done("fail", "the host could not play " .. M.EXTRAS_CHIME .. ": " .. brief(event.errMsg or event.errCode))
+                    end)
+                    audio:on_ended(function()
+                        audio:destroy()
+                        done("pass", "played " .. M.EXTRAS_CHIME .. " to its end")
+                    end)
+                    audio:play()
                 end)
             end },
         },
