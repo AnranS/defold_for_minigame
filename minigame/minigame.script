@@ -1,0 +1,13 @@
+-- Drives the minigame module: finds the bridge once and delivers queued
+-- results and host events every frame. Add /minigame/minigame.go to the
+-- bootstrap collection instead of calling minigame.update() yourself.
+
+local minigame = require "minigame.minigame"
+
+function init(self)
+    minigame.init()
+end
+
+function update(self, dt)
+    minigame.update()
+end

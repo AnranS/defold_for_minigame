@@ -1,0 +1,81 @@
+name: Deploy website
+
+# The site is generated from the documents, support-matrix.json, the Lua
+# module, and the figure generator, so a change to any of them rebuilds it.
+on:
+  pull_request:
+    paths:
+      - "website/**"
+      - "docs/**"
+      - "minigame/minigame.lua"
+      - "scripts/lib/**"
+      - "scripts/generate_diagrams.mjs"
+      - "support-matrix.json"
+      - "package.json"
+      - ".github/workflows/deploy-pages.yml"
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - "docs/**"
+      - "minigame/minigame.lua"
+      - "scripts/lib/**"
+      - "scripts/generate_diagrams.mjs"
+      - "support-matrix.json"
+      - "package.json"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install LuaJIT
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes luajit
+
+      # The home page says the automated tests pass, so the site is only
+      # published from a commit where they do.
+      - name: Run every check and build the site
+        env:
+          REQUIRE_LUA: "1"
+        run: ./scripts/test.sh
+
+      # Publishing needs GitHub Pages to be enabled for the repository
+      # (Settings > Pages > Source: GitHub Actions). Until then a push only
+      # builds and checks the site; a manual run publishes regardless.
+      - name: Upload the site
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.event.repository.has_pages)
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: website/dist
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.event.repository.has_pages)
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

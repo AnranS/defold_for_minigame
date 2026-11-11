@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img" aria-labelledby="figure-title figure-description">
+<title id="figure-title">What happens at export time and at run time</title>
+<desc id="figure-description">At export time the tool reads the Defold HTML5 bundle, verifies sizes, hashes, WebAssembly features, and the loader's structure, composes dmloader.js and the engine glue verbatim into one scoped module, and writes a main package and an engine subpackage. At run time there are four layers, top to bottom: your game; the Defold engine, run verbatim; the adapter this project provides; and the host, wx, tt, or TTMinis.game.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5bb4ff"/></marker>
+<marker id="arrow-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#9ca9bb"/></marker>
+<linearGradient id="brand" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5bb4ff"/><stop offset="1" stop-color="#ffa24d"/></linearGradient>
+</defs>
+<style>text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+  .mono { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  .caps { letter-spacing: 0.08em; }</style>
+<rect x="0.5" y="0.5" width="1199" height="799" rx="24" fill="#0b1018" stroke="#1c2533" stroke-width="1"/>
+<text x="48" y="52" font-size="13" font-weight="600" fill="#5bb4ff" class="caps">AT EXPORT TIME</text>
+<rect x="48" y="76" width="252" height="288" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="68" y="108" font-size="12" font-weight="600" fill="#ffa24d" class="caps">INPUT</text>
+<text x="68" y="138" font-size="18" font-weight="650" fill="#f5f7fb">Defold HTML5 bundle</text>
+<circle cx="71" cy="167" r="2.5" fill="#5bb4ff"/>
+<text x="84" y="172" font-size="14.5" fill="#9ca9bb" class="mono">dmloader.js</text>
+<circle cx="71" cy="194" r="2.5" fill="#5bb4ff"/>
+<text x="84" y="199" font-size="14.5" fill="#9ca9bb" class="mono">&lt;name&gt;_wasm.js</text>
+<circle cx="71" cy="221" r="2.5" fill="#5bb4ff"/>
+<text x="84" y="226" font-size="14.5" fill="#9ca9bb" class="mono">&lt;name&gt;.wasm</text>
+<circle cx="71" cy="248" r="2.5" fill="#5bb4ff"/>
+<text x="84" y="253" font-size="14.5" fill="#9ca9bb" class="mono">archive/</text>
+<path d="M306 220H326" fill="none" stroke="#5bb4ff" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="332" y="76" width="252" height="288" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="352" y="108" font-size="12" font-weight="600" fill="#ffa24d" class="caps">VERIFY</text>
+<text x="352" y="138" font-size="18" font-weight="650" fill="#f5f7fb">Check before writing</text>
+<circle cx="355" cy="167" r="2.5" fill="#5bb4ff"/>
+<text x="368" y="172" font-size="14.5" fill="#9ca9bb">sizes and hashes</text>
+<circle cx="355" cy="194" r="2.5" fill="#5bb4ff"/>
+<text x="368" y="199" font-size="14.5" fill="#9ca9bb">WebAssembly features,</text>
+<text x="368" y="220" font-size="14.5" fill="#9ca9bb">function by function</text>
+<circle cx="355" cy="242" r="2.5" fill="#5bb4ff"/>
+<text x="368" y="247" font-size="14.5" fill="#9ca9bb">the loader's structure</text>
+<circle cx="355" cy="269" r="2.5" fill="#5bb4ff"/>
+<text x="368" y="274" font-size="14.5" fill="#9ca9bb">package limits</text>
+<path d="M590 220H610" fill="none" stroke="#5bb4ff" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="616" y="76" width="252" height="288" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="636" y="108" font-size="12" font-weight="600" fill="#ffa24d" class="caps">COMPOSE</text>
+<text x="636" y="138" font-size="18" font-weight="650" fill="#f5f7fb">Engine module</text>
+<circle cx="639" cy="167" r="2.5" fill="#5bb4ff"/>
+<text x="652" y="172" font-size="14.5" fill="#9ca9bb">dmloader.js and the engine</text>
+<text x="652" y="193" font-size="14.5" fill="#9ca9bb">glue, verbatim</text>
+<circle cx="639" cy="215" r="2.5" fill="#5bb4ff"/>
+<text x="652" y="220" font-size="14.5" fill="#9ca9bb">one function scope for both</text>
+<text x="652" y="241" font-size="14.5" fill="#9ca9bb">files</text>
+<circle cx="639" cy="263" r="2.5" fill="#5bb4ff"/>
+<text x="652" y="268" font-size="14.5" fill="#9ca9bb">eval redirected to the Lua</text>
+<text x="652" y="289" font-size="14.5" fill="#9ca9bb">bridge</text>
+<circle cx="639" cy="311" r="2.5" fill="#5bb4ff"/>
+<text x="652" y="316" font-size="14.5" fill="#9ca9bb">nothing written to the</text>
+<text x="652" y="337" font-size="14.5" fill="#9ca9bb">global object</text>
+<path d="M874 220H894" fill="none" stroke="#5bb4ff" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="900" y="76" width="252" height="288" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="920" y="108" font-size="12" font-weight="600" fill="#ffa24d" class="caps">OUTPUT</text>
+<text x="920" y="138" font-size="18" font-weight="650" fill="#f5f7fb">Mini-game project</text>
+<circle cx="923" cy="167" r="2.5" fill="#5bb4ff"/>
+<text x="936" y="172" font-size="14.5" fill="#9ca9bb">main package ≈ 0.42 MB</text>
+<circle cx="923" cy="194" r="2.5" fill="#5bb4ff"/>
+<text x="936" y="199" font-size="14.5" fill="#9ca9bb">engine subpackage: engine</text>
+<text x="936" y="220" font-size="14.5" fill="#9ca9bb">and archive</text>
+<circle cx="923" cy="242" r="2.5" fill="#5bb4ff"/>
+<text x="936" y="247" font-size="14.5" fill="#9ca9bb">ownership manifest</text>
+<circle cx="923" cy="269" r="2.5" fill="#5bb4ff"/>
+<text x="936" y="274" font-size="14.5" fill="#9ca9bb">rollback on failure</text>
+<text x="48" y="418" font-size="13" font-weight="600" fill="#5bb4ff" class="caps">AT RUN TIME</text>
+<rect x="48" y="442" width="1104" height="70" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="74" y="483" font-size="18" font-weight="650" fill="#f5f7fb">Your game</text>
+<text x="278" y="482" font-size="15" fill="#9ca9bb">Lua scripts, assets, and minigame.lua</text>
+<rect x="1065.16" y="463" width="62.839999999999996" height="28" rx="14" fill="none" stroke="#263243" stroke-width="1"/>
+<text x="1096.5800000000002" y="481.5" font-size="13" fill="#9ca9bb" text-anchor="middle">yours</text>
+<rect x="48" y="522" width="1104" height="70" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="74" y="563" font-size="18" font-weight="650" fill="#f5f7fb">Defold engine</text>
+<text x="278" y="562" font-size="15" fill="#9ca9bb">dmloader.js, the engine glue, and dmengine.wasm, all verbatim</text>
+<rect x="1026.68" y="543" width="101.32000000000001" height="28" rx="14" fill="none" stroke="#263243" stroke-width="1"/>
+<text x="1077.3400000000001" y="561.5" font-size="13" fill="#9ca9bb" text-anchor="middle">from Defold</text>
+<rect x="48" y="602" width="1104" height="70" rx="14" fill="#0f1b2b" stroke="#5bb4ff" stroke-width="1.5"/>
+<text x="74" y="643" font-size="18" font-weight="650" fill="#f5f7fb">Adapter</text>
+<text x="278" y="642" font-size="15" fill="#f5f7fb">canvas · touch · keyboard · network · audio · saves · Lua bridge</text>
+<rect x="1028.24" y="623" width="99.75999999999999" height="28" rx="14" fill="none" stroke="#5bb4ff" stroke-width="1"/>
+<text x="1078.12" y="641.5" font-size="13" fill="#5bb4ff" text-anchor="middle">this project</text>
+<rect x="48" y="682" width="1104" height="70" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="74" y="723" font-size="18" font-weight="650" fill="#f5f7fb">Host</text>
+<text x="278" y="722" font-size="15" fill="#9ca9bb" class="mono">wx   |   tt   |   TTMinis.game</text>
+<rect x="1022.91" y="703" width="105.09" height="28" rx="14" fill="none" stroke="#263243" stroke-width="1"/>
+<text x="1075.455" y="721.5" font-size="13" fill="#9ca9bb" text-anchor="middle">the platform</text>
+</svg>

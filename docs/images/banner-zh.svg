@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 380" width="1200" height="380" role="img" aria-labelledby="figure-title figure-description">
+<title id="figure-title">从 Defold HTML5 包到三个小游戏平台</title>
+<desc id="figure-description">Defold 打出的 HTML5 包（dmloader.js、引擎胶水、引擎二进制、归档）经过 defold-minigame export 一条命令，变成微信、抖音或 TikTok 的小游戏工程。</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5bb4ff"/></marker>
+<marker id="arrow-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#9ca9bb"/></marker>
+<linearGradient id="brand" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5bb4ff"/><stop offset="1" stop-color="#ffa24d"/></linearGradient>
+</defs>
+<style>text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+  .mono { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  .caps { letter-spacing: 0.08em; }</style>
+<rect x="0.5" y="0.5" width="1199" height="379" rx="24" fill="#0b1018" stroke="#1c2533" stroke-width="1"/>
+<rect x="48" y="58" width="330" height="264" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="72" y="96" font-size="12" font-weight="600" fill="#5bb4ff" class="caps">输入</text>
+<text x="72" y="128" font-size="22" font-weight="650" fill="#f5f7fb">Defold HTML5 包</text>
+<text x="72" y="154" font-size="13" fill="#68778b">Project › Bundle › HTML5 Application</text>
+<rect x="72" y="183" width="13" height="16" rx="3" fill="none" stroke="#5bb4ff" stroke-width="1.5"/>
+<text x="98" y="196" font-size="15" fill="#f5f7fb" class="mono">dmloader.js</text>
+<rect x="72" y="215" width="13" height="16" rx="3" fill="none" stroke="#5bb4ff" stroke-width="1.5"/>
+<text x="98" y="228" font-size="15" fill="#f5f7fb" class="mono">MyGame_wasm.js</text>
+<rect x="72" y="247" width="13" height="16" rx="3" fill="none" stroke="#5bb4ff" stroke-width="1.5"/>
+<text x="98" y="260" font-size="15" fill="#f5f7fb" class="mono">MyGame.wasm</text>
+<rect x="72" y="279" width="13" height="16" rx="3" fill="none" stroke="#5bb4ff" stroke-width="1.5"/>
+<text x="98" y="292" font-size="15" fill="#f5f7fb" class="mono">archive/</text>
+<text x="600" y="126" font-size="12" font-weight="600" fill="#68778b" text-anchor="middle" class="caps">一条命令</text>
+<rect x="432" y="150" width="336" height="80" rx="40" fill="#0f1622" stroke="url(#brand)" stroke-width="2"/>
+<text x="600" y="197" font-size="19" font-weight="600" fill="#f5f7fb" text-anchor="middle" class="mono">defold-minigame export</text>
+<text x="600" y="266" font-size="15" fill="#9ca9bb" text-anchor="middle">校验 · 合成 · 分包</text>
+<text x="600" y="292" font-size="13" fill="#68778b" text-anchor="middle">用 Defold 官方引擎，不用自己编译</text>
+<path d="M386 190H424" fill="none" stroke="#5bb4ff" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
+<path d="M774 190C802 190 798 94 824 94" fill="none" stroke="#5bb4ff" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="832" y="58" width="320" height="72" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<rect x="846" y="74" width="4" height="40" rx="2" fill="#07c160"/>
+<text x="866" y="90" font-size="17" font-weight="600" fill="#f5f7fb">微信小游戏</text>
+<text x="866" y="112" font-size="14" fill="#5bb4ff" class="mono">wx</text>
+<text x="897.08" y="112" font-size="13" fill="#68778b">微信开发者工具</text>
+<path d="M774 190C802 190 798 190 824 190" fill="none" stroke="#5bb4ff" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="832" y="154" width="320" height="72" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<rect x="846" y="170" width="4" height="40" rx="2" fill="#25f4ee"/>
+<text x="866" y="186" font-size="17" font-weight="600" fill="#f5f7fb">抖音小游戏</text>
+<text x="866" y="208" font-size="14" fill="#5bb4ff" class="mono">tt</text>
+<text x="897.08" y="208" font-size="13" fill="#68778b">抖音开发者工具</text>
+<path d="M774 190C802 190 798 286 824 286" fill="none" stroke="#5bb4ff" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="832" y="250" width="320" height="72" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<rect x="846" y="266" width="4" height="40" rx="2" fill="#fe2c55"/>
+<text x="866" y="282" font-size="17" font-weight="600" fill="#f5f7fb">TikTok Mini Game</text>
+<text x="866" y="304" font-size="14" fill="#5bb4ff" class="mono">TTMinis.game</text>
+<text x="982.48" y="304" font-size="13" fill="#68778b">ttmg</text>
+</svg>

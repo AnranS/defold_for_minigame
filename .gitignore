@@ -1,0 +1,11 @@
+node_modules/
+.cache/
+.DS_Store
+*.log
+/build/
+/.internal/
+/.editor_settings
+/website/dist/
+/test/.tmp/
+# Feishu document drafts written while the research report was authored
+/draft_*_folder/

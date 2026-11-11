@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 488" width="1200" height="488" role="img" aria-labelledby="figure-title figure-description">
+<title id="figure-title">一次导出里有什么</title>
+<desc id="figure-description">主包只有入口、配置、适配层和引擎模块，约 0.42 MB，上限 4 MB。engine 分包里是 Brotli 压缩后的官方引擎（2.89 MB 压到 0.92 MB）和游戏归档。总包上限：微信 30 MB  ·  抖音 20 MB  ·  TikTok 30 MB。</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5bb4ff"/></marker>
+<marker id="arrow-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#9ca9bb"/></marker>
+<linearGradient id="brand" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5bb4ff"/><stop offset="1" stop-color="#ffa24d"/></linearGradient>
+</defs>
+<style>text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+  .mono { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  .caps { letter-spacing: 0.08em; }</style>
+<rect x="0.5" y="0.5" width="1199" height="487" rx="24" fill="#0b1018" stroke="#1c2533" stroke-width="1"/>
+<rect x="48" y="48" width="540" height="344" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="74" y="84" font-size="12" font-weight="600" fill="#ffa24d" class="caps">主包</text>
+<text x="74" y="116" font-size="20" font-weight="650" fill="#f5f7fb">胶水和运行时</text>
+<text x="74" y="156" font-size="14.5" fill="#f5f7fb" class="mono">game.js</text>
+<text x="562" y="156" font-size="14" fill="#9ca9bb" text-anchor="end">入口</text>
+<text x="74" y="187" font-size="14.5" fill="#f5f7fb" class="mono">game.json</text>
+<text x="562" y="187" font-size="14" fill="#9ca9bb" text-anchor="end">配置，声明 engine 分包</text>
+<text x="74" y="218" font-size="14.5" fill="#f5f7fb" class="mono">adapter.js</text>
+<text x="562" y="218" font-size="14" fill="#9ca9bb" text-anchor="end">浏览器环境适配</text>
+<text x="74" y="249" font-size="14.5" fill="#f5f7fb" class="mono">js/defold_engine.js</text>
+<text x="562" y="249" font-size="14" fill="#9ca9bb" text-anchor="end">dmloader.js 和引擎胶水</text>
+<text x="74" y="280" font-size="14.5" fill="#f5f7fb" class="mono">js/loader.js, bridge.js, …</text>
+<text x="562" y="280" font-size="14" fill="#9ca9bb" text-anchor="end">启动、Lua 桥、存档</text>
+<text x="74" y="337" font-size="14" font-weight="600" fill="#f5f7fb">约 0.42 MB</text>
+<text x="562" y="337" font-size="13" fill="#68778b" text-anchor="end">主包上限 4 MB</text>
+<rect x="74" y="347" width="488" height="10" rx="5" fill="#1c2533"/>
+<rect x="74" y="347" width="51" height="10" rx="5" fill="#5bb4ff"/>
+<rect x="612" y="48" width="540" height="344" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="638" y="84" font-size="12" font-weight="600" fill="#ffa24d" class="caps">ENGINE 分包</text>
+<text x="638" y="116" font-size="20" font-weight="650" fill="#f5f7fb">引擎和你的游戏资源</text>
+<text x="638" y="156" font-size="14.5" fill="#f5f7fb" class="mono">engine/dmengine.wasm.br</text>
+<text x="1126" y="156" font-size="14" fill="#9ca9bb" text-anchor="end">官方引擎，Brotli 压缩</text>
+<text x="638" y="187" font-size="14.5" fill="#f5f7fb" class="mono">engine/archive/*.bin</text>
+<text x="1126" y="187" font-size="14" fill="#9ca9bb" text-anchor="end">游戏归档：你的资源</text>
+<text x="638" y="218" font-size="14.5" fill="#f5f7fb" class="mono">engine/game.js</text>
+<text x="1126" y="218" font-size="14" fill="#9ca9bb" text-anchor="end">分包入口</text>
+<text x="638" y="275" font-size="14" font-weight="600" fill="#f5f7fb">引擎二进制 2.89 MB</text>
+<text x="1126" y="275" font-size="13" fill="#68778b" text-anchor="end">压缩前</text>
+<rect x="638" y="285" width="488" height="10" rx="5" fill="#1c2533"/>
+<rect x="638" y="285" width="488" height="10" rx="5" fill="#3a475a"/>
+<text x="638" y="325" font-size="14" font-weight="600" fill="#f5f7fb">0.92 MB</text>
+<text x="1126" y="325" font-size="13" fill="#68778b" text-anchor="end">Brotli 压缩后，放进包里的是这个</text>
+<rect x="638" y="335" width="488" height="10" rx="5" fill="#1c2533"/>
+<rect x="638" y="335" width="155" height="10" rx="5" fill="#ffa24d"/>
+<text x="600" y="432" font-size="15" fill="#9ca9bb" text-anchor="middle">总包上限：微信 30 MB  ·  抖音 20 MB  ·  TikTok 30 MB</text>
+<text x="600" y="458" font-size="13" fill="#68778b" text-anchor="middle">数字来自 Defold 1.14.1 官方引擎的导出，归档大小取决于你的游戏</text>
+</svg>

@@ -1,0 +1,42 @@
+{
+  "name": "defold-minigame",
+  "version": "0.1.0",
+  "description": "Export Defold HTML5 bundles as WeChat, Douyin, and TikTok mini games.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AnranS/defold_for_minigame.git"
+  },
+  "type": "module",
+  "bin": {
+    "defold-minigame": "bin/defold-minigame.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "runtime",
+    "minigame",
+    "support-matrix.json",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "README.md",
+    "README_zh.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "site:build": "node website/build.mjs",
+    "site:check": "node --test website/tests/*.test.mjs",
+    "site:serve": "node website/serve.mjs"
+  },
+  "keywords": [
+    "defold",
+    "minigame",
+    "wechat",
+    "douyin",
+    "tiktok",
+    "webassembly"
+  ]
+}

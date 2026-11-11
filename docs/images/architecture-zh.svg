@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 737" width="1200" height="737" role="img" aria-labelledby="figure-title figure-description">
+<title id="figure-title">导出时和运行时各做了什么</title>
+<desc id="figure-description">导出时：读取 Defold HTML5 包，校验大小、哈希、WebAssembly 特性和加载器结构，把 dmloader.js 和引擎胶水原样合成进一个作用域模块，生成主包和 engine 分包。运行时自上而下四层：你的游戏；原样运行的 Defold 引擎；本项目提供的适配层；宿主 wx、tt 或 TTMinis.game。</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5bb4ff"/></marker>
+<marker id="arrow-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#9ca9bb"/></marker>
+<linearGradient id="brand" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5bb4ff"/><stop offset="1" stop-color="#ffa24d"/></linearGradient>
+</defs>
+<style>text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+  .mono { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  .caps { letter-spacing: 0.08em; }</style>
+<rect x="0.5" y="0.5" width="1199" height="736" rx="24" fill="#0b1018" stroke="#1c2533" stroke-width="1"/>
+<text x="48" y="52" font-size="13" font-weight="600" fill="#5bb4ff" class="caps">导出时</text>
+<rect x="48" y="76" width="252" height="225" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="68" y="108" font-size="12" font-weight="600" fill="#ffa24d" class="caps">输入</text>
+<text x="68" y="138" font-size="18" font-weight="650" fill="#f5f7fb">Defold HTML5 包</text>
+<circle cx="71" cy="167" r="2.5" fill="#5bb4ff"/>
+<text x="84" y="172" font-size="14.5" fill="#9ca9bb" class="mono">dmloader.js</text>
+<circle cx="71" cy="194" r="2.5" fill="#5bb4ff"/>
+<text x="84" y="199" font-size="14.5" fill="#9ca9bb" class="mono">&lt;name&gt;_wasm.js</text>
+<circle cx="71" cy="221" r="2.5" fill="#5bb4ff"/>
+<text x="84" y="226" font-size="14.5" fill="#9ca9bb" class="mono">&lt;name&gt;.wasm</text>
+<circle cx="71" cy="248" r="2.5" fill="#5bb4ff"/>
+<text x="84" y="253" font-size="14.5" fill="#9ca9bb" class="mono">archive/</text>
+<path d="M306 188.5H326" fill="none" stroke="#5bb4ff" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="332" y="76" width="252" height="225" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="352" y="108" font-size="12" font-weight="600" fill="#ffa24d" class="caps">校验</text>
+<text x="352" y="138" font-size="18" font-weight="650" fill="#f5f7fb">先确认能导再动手</text>
+<circle cx="355" cy="167" r="2.5" fill="#5bb4ff"/>
+<text x="368" y="172" font-size="14.5" fill="#9ca9bb">核对大小和哈希</text>
+<circle cx="355" cy="194" r="2.5" fill="#5bb4ff"/>
+<text x="368" y="199" font-size="14.5" fill="#9ca9bb">逐函数扫描 WebAssembly 特</text>
+<text x="368" y="220" font-size="14.5" fill="#9ca9bb">性</text>
+<circle cx="355" cy="242" r="2.5" fill="#5bb4ff"/>
+<text x="368" y="247" font-size="14.5" fill="#9ca9bb">检查加载器的结构</text>
+<circle cx="355" cy="269" r="2.5" fill="#5bb4ff"/>
+<text x="368" y="274" font-size="14.5" fill="#9ca9bb">检查包体上限</text>
+<path d="M590 188.5H610" fill="none" stroke="#5bb4ff" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="616" y="76" width="252" height="225" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="636" y="108" font-size="12" font-weight="600" fill="#ffa24d" class="caps">合成</text>
+<text x="636" y="138" font-size="18" font-weight="650" fill="#f5f7fb">引擎模块</text>
+<circle cx="639" cy="167" r="2.5" fill="#5bb4ff"/>
+<text x="652" y="172" font-size="14.5" fill="#9ca9bb">dmloader.js 和引擎胶水原样</text>
+<text x="652" y="193" font-size="14.5" fill="#9ca9bb">放入</text>
+<circle cx="639" cy="215" r="2.5" fill="#5bb4ff"/>
+<text x="652" y="220" font-size="14.5" fill="#9ca9bb">两个文件共用一个函数作用域</text>
+<circle cx="639" cy="242" r="2.5" fill="#5bb4ff"/>
+<text x="652" y="247" font-size="14.5" fill="#9ca9bb">eval 改接到 Lua 桥</text>
+<circle cx="639" cy="269" r="2.5" fill="#5bb4ff"/>
+<text x="652" y="274" font-size="14.5" fill="#9ca9bb">不往全局对象写东西</text>
+<path d="M874 188.5H894" fill="none" stroke="#5bb4ff" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="900" y="76" width="252" height="225" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="920" y="108" font-size="12" font-weight="600" fill="#ffa24d" class="caps">产物</text>
+<text x="920" y="138" font-size="18" font-weight="650" fill="#f5f7fb">小游戏工程</text>
+<circle cx="923" cy="167" r="2.5" fill="#5bb4ff"/>
+<text x="936" y="172" font-size="14.5" fill="#9ca9bb">主包约 0.42 MB</text>
+<circle cx="923" cy="194" r="2.5" fill="#5bb4ff"/>
+<text x="936" y="199" font-size="14.5" fill="#9ca9bb">engine 分包：引擎和归档</text>
+<circle cx="923" cy="221" r="2.5" fill="#5bb4ff"/>
+<text x="936" y="226" font-size="14.5" fill="#9ca9bb">所有权清单</text>
+<circle cx="923" cy="248" r="2.5" fill="#5bb4ff"/>
+<text x="936" y="253" font-size="14.5" fill="#9ca9bb">失败时回滚</text>
+<text x="48" y="355" font-size="13" font-weight="600" fill="#5bb4ff" class="caps">运行时</text>
+<rect x="48" y="379" width="1104" height="70" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="74" y="420" font-size="18" font-weight="650" fill="#f5f7fb">你的游戏</text>
+<text x="278" y="419" font-size="15" fill="#9ca9bb">Lua 脚本、资源，以及 minigame.lua</text>
+<rect x="1048" y="400" width="80" height="28" rx="14" fill="none" stroke="#263243" stroke-width="1"/>
+<text x="1088" y="418.5" font-size="13" fill="#9ca9bb" text-anchor="middle">你的代码</text>
+<rect x="48" y="459" width="1104" height="70" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="74" y="500" font-size="18" font-weight="650" fill="#f5f7fb">Defold 引擎</text>
+<text x="278" y="499" font-size="15" fill="#9ca9bb">dmloader.js、引擎胶水、dmengine.wasm，全部原样运行</text>
+<rect x="1029.93" y="480" width="98.07" height="28" rx="14" fill="none" stroke="#263243" stroke-width="1"/>
+<text x="1078.9650000000001" y="498.5" font-size="13" fill="#9ca9bb" text-anchor="middle">来自 Defold</text>
+<rect x="48" y="539" width="1104" height="70" rx="14" fill="#0f1b2b" stroke="#5bb4ff" stroke-width="1.5"/>
+<text x="74" y="580" font-size="18" font-weight="650" fill="#f5f7fb">适配层</text>
+<text x="278" y="579" font-size="15" fill="#f5f7fb">画布 · 触摸 · 键盘 · 网络 · 音频 · 存档 · Lua 桥</text>
+<rect x="1061" y="560" width="67" height="28" rx="14" fill="none" stroke="#5bb4ff" stroke-width="1"/>
+<text x="1094.5" y="578.5" font-size="13" fill="#5bb4ff" text-anchor="middle">本项目</text>
+<rect x="48" y="619" width="1104" height="70" rx="14" fill="#111824" stroke="#263243" stroke-width="1"/>
+<text x="74" y="660" font-size="18" font-weight="650" fill="#f5f7fb">宿主</text>
+<text x="278" y="659" font-size="15" fill="#9ca9bb" class="mono">wx   |   tt   |   TTMinis.game</text>
+<rect x="1048" y="640" width="80" height="28" rx="14" fill="none" stroke="#263243" stroke-width="1"/>
+<text x="1088" y="658.5" font-size="13" fill="#9ca9bb" text-anchor="middle">平台提供</text>
+</svg>
