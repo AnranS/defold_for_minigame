@@ -1,0 +1,30 @@
+#version 140
+
+// Unlit, blended: smoke, clouds, rain, snow, fireflies, the rainbow.
+// color0 is the colour and its opacity; normal is unused.
+
+in highp vec4 position;
+in mediump vec3 normal;
+in mediump vec4 color0;
+
+out mediump vec4 var_color;
+out mediump float var_fog;
+
+uniform vs_uniforms
+{
+    highp mat4 mtx_viewproj;
+    mediump vec4 sun_dir;
+    mediump vec4 sun_color;
+    mediump vec4 ambient;
+    highp vec4 fog;
+    highp vec4 eye;
+    mediump vec4 mood;
+};
+
+void main()
+{
+    highp vec3 p = position.xyz;
+    var_color = color0 + vec4(normal * 0.0, 0.0) + (sun_dir + sun_color + ambient + mood) * 0.0;
+    var_fog = clamp((distance(p, eye.xyz) - fog.x) * fog.y, 0.0, 1.0) * 0.6;
+    gl_Position = mtx_viewproj * vec4(p, 1.0);
+}

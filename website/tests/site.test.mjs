@@ -111,7 +111,7 @@ test("every internal link, anchor, and asset resolves", () => {
   let checked = 0;
   for (const entry of pages) {
     const from = join(outDir, entry.route);
-    for (const href of [...attributeValues(entry.html, "href"), ...attributeValues(entry.html, "src")]) {
+    for (const href of [...attributeValues(entry.html, "href"), ...attributeValues(entry.html, "src"), ...attributeValues(entry.html, "poster")]) {
       if (/^https?:/.test(href)) continue;
       assert.ok(!href.startsWith("/"), `${entry.route}: "${href}" is tied to the host root; links must be relative`);
       const hash = href.indexOf("#");
@@ -256,6 +256,30 @@ test("a matrix value the copy has no words for stops the build", () => {
   site.matrix = structuredClone(site.matrix);
   site.matrix.platformContracts.wechat.supportTier = "stable";
   assert.throws(() => renderSite(site), /support tier name for "stable"/);
+});
+
+test("the home pages show the demo game: a video that plays without sound, and where its source is", () => {
+  for (const [route, lang] of [["", "zh"], ["en/", "en"]]) {
+    const demo = section(page(route).html, "demo");
+    const video = /<video ([^>]+)>/.exec(demo);
+    assert.ok(video, `${route}: no video in the demo section`);
+    const attributes = video[1];
+    assert.match(attributes, /src="[./]*videos\/island\.mp4"/);
+    assert.match(attributes, /poster="[./]*videos\/island-poster\.png"/);
+    // Browsers only start a video by themselves when it is muted, and phones only inline with playsinline.
+    for (const flag of ["controls", "muted", "loop", "playsinline"]) assert.ok(new RegExp(`\\b${flag}\\b`).test(attributes), `${route}: ${flag}`);
+    assert.match(attributes, /preload="metadata"/, "the page does not download the whole video before anyone asks for it");
+    assert.match(attributes, /aria-label="[^"]{12,}"/, "the video says what it shows");
+    assert.match(attributes, /width="\d+" height="\d+"/, "the video has a size before it loads");
+    assert.ok(demo.includes(`href="${loadSite().repository}/tree/main/demo/island"`), `${route}: no link to the demo's source`);
+    assert.ok(home[lang].demoPoints.length >= 3);
+    for (const point of home[lang].demoPoints) assert.ok(demo.includes(point.split("{")[0].slice(0, 12)), `${route}: ${point}`);
+  }
+  for (const file of ["island.mp4", "island-poster.png"]) {
+    assert.ok(existsSync(join(outDir, "videos", file)), `${file} is in the built site`);
+  }
+  const size = readFileSync(join(outDir, "videos", "island.mp4")).length;
+  assert.ok(size > 100 * 1024 && size < 4 * 1024 * 1024, `the video is ${size} bytes`);
 });
 
 test("the two languages have the same structure", () => {

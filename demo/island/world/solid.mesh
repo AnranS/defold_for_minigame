@@ -1,0 +1,5 @@
+material: "/materials/solid.material"
+vertices: "/world/empty.buffer"
+primitive_type: PRIMITIVE_TRIANGLES
+position_stream: "position"
+normal_stream: "normal"

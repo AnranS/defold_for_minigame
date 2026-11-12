@@ -183,6 +183,11 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-
 .figure img { width: 100%; min-width: 760px; height: auto; }
 .figure-title { margin: 44px 0 16px; font-size: 1.14rem; }
 .runs-note { margin: 14px 0 0; font-size: 0.9rem; }
+.demo { display: flex; flex-wrap: wrap; gap: 32px 48px; align-items: center; }
+.demo video { width: 300px; max-width: 100%; height: auto; border: 1px solid var(--line-strong); border-radius: 24px; background: #000; }
+.demo-notes { flex: 1 1 320px; max-width: 560px; }
+.demo-notes ul { margin: 0 0 20px; padding-left: 1.2em; }
+.demo-notes li { margin: 0 0 12px; color: var(--muted); line-height: 1.6; }
 .screenshots { display: flex; flex-wrap: wrap; gap: 28px 24px; align-items: flex-start; }
 .screenshots figure { margin: 0; width: 260px; }
 .screenshots img { width: 100%; height: auto; border: 1px solid var(--line-strong); border-radius: 20px; background: #000; }

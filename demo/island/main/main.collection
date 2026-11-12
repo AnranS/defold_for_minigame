@@ -1,0 +1,10 @@
+name: "main"
+instances {
+  id: "minigame"
+  prototype: "/minigame/minigame.go"
+}
+instances {
+  id: "game"
+  prototype: "/main/game.go"
+}
+scale_along_z: 0

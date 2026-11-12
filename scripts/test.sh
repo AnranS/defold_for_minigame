@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Everything a change has to pass before it is submitted:
 #
+#   0. (listed last, run last) the logic tests of the demo game in demo/island,
+#      when a Lua interpreter is there
 #   1. the test suite: exporter, runtime in simulated hosts, Lua SDK, and the
 #      agreement between support-matrix.json, the code, and the documents
 #   2. the generated files are current: docs/API.md and docs/API_zh.md match
@@ -42,6 +44,11 @@ echo "docs/images is current"
 step "Website"
 node website/build.mjs
 node --test website/tests/*.test.mjs
+
+if [ -n "$lua" ]; then
+  step "Demo game"
+  (cd demo/island && "$lua" test/run.lua)
+fi
 
 echo
 if [ -z "$lua" ]; then

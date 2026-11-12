@@ -169,6 +169,19 @@ minigame.show_toast("Level " .. minigame.storage_get("level", "1"))
 | 了解为什么这样设计 | [调研与设计依据](docs/RESEARCH_zh.md) |
 | 发布新版本、认证新的 Defold 版本 | [发布流程](docs/RELEASING.md) |
 
+### 演示游戏：捏一座岛
+
+<a href="https://anrans.github.io/defold_for_minigame/#demo"><img src="docs/videos/island-poster.png" width="220" alt="演示游戏《捏一座岛》的画面：一座低多边形小岛，有一排红顶小屋、小路、木桥、钟楼、花田和麦田，四周是浅色的海" /></a>
+
+[`demo/island/`](demo/island/) 是一个用这个工具导出的完整 3D 游戏：在海上捏出一座岛，放下去的东西自己变好看，岛民搬来生活。点上面的图可以在官网看它的[录屏](https://anrans.github.io/defold_for_minigame/#demo)。它是这个适配层上第一个跑起来的 3D 工程，地形、房子、岛民都是运行时生成的网格。
+
+```bash
+node bin/defold-minigame.mjs build --project demo/island --bob path/to/bob.jar \
+  --platform wechat --appid <你的 App ID> --output ../island-wechat
+```
+
+目前只在微信开发者工具里运行过。演示游戏和视频不在 tag 的源码压缩包里（库依赖下载的就是那个包），要看它请 clone 仓库。
+
 ### API 功能测试应用
 
 仓库根目录的 Defold 工程是一个测试应用：`minigame` 模块的每个函数都是一个按钮，“Run all” 会把不需要人点的那些全部跑一遍。用 Defold 的 `bob.jar` 可以一步完成构建和导出：

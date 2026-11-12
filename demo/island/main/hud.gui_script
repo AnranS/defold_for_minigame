@@ -1,0 +1,583 @@
+-- The interface: tools at the bottom, the task at the top, panels for the
+-- sky, the tasks, the collection and the islands, and photo mode.
+-- It owns the touch input: what lands on a button is handled here, the rest
+-- goes to the game through island.app.
+
+local app = require "island.app"
+local catalog = require "island.catalog"
+local progress_m = require "island.progress"
+
+local TOUCH, MULTITOUCH = hash("touch"), hash("multitouch")
+local W, H = 720, 1280
+
+local INK = vmath.vector4(0.30, 0.24, 0.20, 1)
+local SOFT = vmath.vector4(0.52, 0.45, 0.40, 1)
+local CREAM = vmath.vector4(1.0, 0.98, 0.93, 0.95)
+local WHITE = vmath.vector4(1, 1, 1, 1)
+local SUN = vmath.vector4(1.0, 0.82, 0.36, 1)
+local LEAF = vmath.vector4(0.50, 0.78, 0.48, 1)
+local GREY = vmath.vector4(0.86, 0.84, 0.80, 1)
+local SHADE = vmath.vector4(0.12, 0.10, 0.10, 0.45)
+local CLEAR = vmath.vector4(1, 1, 1, 0)
+
+-- ── building blocks ────────────────────────────────────────────
+
+local function box(parent, x, y, w, h, color, shape)
+    local node = gui.new_box_node(vmath.vector3(x, y, 0), vmath.vector3(w, h, 0))
+    gui.set_texture(node, "ui")
+    gui.play_flipbook(node, shape or "round")
+    if (shape or "round") == "round" then
+        local corner = math.min(20, w * 0.5 - 1, h * 0.5 - 1)
+        gui.set_slice9(node, vmath.vector4(corner, corner, corner, corner))
+    end
+    gui.set_size_mode(node, gui.SIZE_MODE_MANUAL)
+    gui.set_size(node, vmath.vector3(w, h, 0))
+    gui.set_color(node, color)
+    gui.set_inherit_alpha(node, false)
+    if parent then gui.set_parent(node, parent) end
+    return node
+end
+
+local function label(parent, x, y, text, size, color, pivot)
+    local node = gui.new_text_node(vmath.vector3(x, y, 0), text)
+    gui.set_font(node, "ui")
+    local scale = (size or 26) / 30
+    gui.set_scale(node, vmath.vector3(scale, scale, 1))
+    gui.set_color(node, color or INK)
+    gui.set_pivot(node, pivot or gui.PIVOT_CENTER)
+    gui.set_inherit_alpha(node, false)
+    if parent then gui.set_parent(node, parent) end
+    return node
+end
+
+--- An invisible node that only holds others and sticks to a screen edge.
+local function anchor(x_anchor, y_anchor)
+    -- An anchored node keeps its distance to the edge in proportion, so the
+    -- holder sits exactly on its edge and its children count from there.
+    local x = x_anchor == gui.ANCHOR_RIGHT and W or 0
+    local y = y_anchor == gui.ANCHOR_TOP and H or 0
+    local node = gui.new_box_node(vmath.vector3(x, y, 0), vmath.vector3(1, 1, 0))
+    gui.set_texture(node, "ui")
+    gui.play_flipbook(node, "square")
+    gui.set_color(node, CLEAR)
+    gui.set_pivot(node, gui.PIVOT_SW)
+    if x_anchor then gui.set_xanchor(node, x_anchor) end
+    if y_anchor then gui.set_yanchor(node, y_anchor) end
+    return node
+end
+
+--- A button: registered in `list` so that a touch can find it.
+local function button(list, parent, x, y, w, h, text, options, on_tap)
+    options = options or {}
+    local node = box(parent, x, y, w, h, options.color or WHITE, options.shape)
+    local text_node
+    if text and text ~= "" then
+        text_node = label(node, 0, options.text_y or 0, text, options.size or 24, options.ink or INK)
+    end
+    local entry = { node = node, text = text_node, on_tap = on_tap, drag = options.drag }
+    list[#list + 1] = entry
+    return entry
+end
+
+local function clear(list)
+    for index = #list, 1, -1 do list[index] = nil end
+end
+
+local function hit(list, x, y)
+    for index = #list, 1, -1 do
+        local entry = list[index]
+        if gui.is_enabled(entry.node, true) and gui.pick_node(entry.node, x, y) then return entry end
+    end
+    return nil
+end
+
+local function dots(value, total)
+    return ("%d/%d"):format(value, total)
+end
+
+-- ── the fixed parts ────────────────────────────────────────────
+
+local function build_fixed(self)
+    self.fixed = {}
+    self.top = anchor(nil, gui.ANCHOR_TOP)
+    self.bottom = anchor(nil, gui.ANCHOR_BOTTOM)
+    self.left = anchor(gui.ANCHOR_LEFT, nil)
+    self.right = anchor(gui.ANCHOR_RIGHT, nil)
+
+    -- Top: island level and the current task. Kept below the host's own menu button.
+    local y = -200
+    self.level_box = box(self.top, 78, y, 124, 70, CREAM)
+    self.level_text = label(self.level_box, 0, 10, "1 级", 26)
+    self.level_bar_back = box(self.level_box, 0, -20, 96, 10, GREY)
+    self.level_bar = box(self.level_box, -48, -20, 10, 10, LEAF)
+    gui.set_pivot(self.level_bar, gui.PIVOT_W)
+
+    self.task_button = button(self.fixed, self.top, 372, y, 432, 70, nil, { color = CREAM }, function()
+        self.panel = "tasks"
+    end)
+    self.task_title = label(self.task_button.node, -200, 12, "", 23, INK, gui.PIVOT_W)
+    self.task_hint = label(self.task_button.node, -200, -18, "", 18, SOFT, gui.PIVOT_W)
+    self.help_button = button(self.fixed, self.top, 648, y, 104, 70, "帮我做", { color = SUN, size = 22 }, function()
+        app.send({ type = "help" })
+    end)
+
+    -- Right: the sky, the camera, tidying up, the books.
+    local side = {
+        { "天色", function() self.panel = self.panel == "sky" and nil or "sky" end },
+        { "拍照", function() app.send({ type = "photo", on = true }) end },
+        { "整理", function() app.send({ type = "tidy" }) end },
+        { "图鉴", function() self.panel = "collection" end },
+        { "岛屿", function() self.panel = "menu" end },
+    }
+    for index, item in ipairs(side) do
+        button(self.fixed, self.right, -62, 960 - (index - 1) * 92, 96, 78, item[1], { color = CREAM, size = 24 }, item[2])
+    end
+
+    -- Left: looking around. With one of the two on, a finger moves or turns
+    -- the island instead of using the tool. Two fingers always do both, and zoom.
+    self.move_button = button(self.fixed, self.left, 62, 960, 100, 76, "移动", { color = CREAM, size = 24 }, function()
+        app.send({ type = "hand", mode = "move" })
+    end)
+    self.turn_button = button(self.fixed, self.left, 62, 874, 100, 76, "旋转", { color = CREAM, size = 24 }, function()
+        app.send({ type = "hand", mode = "turn" })
+    end)
+    button(self.fixed, self.left, 62, 788, 100, 70, "拉近", { color = CREAM, size = 22 }, function()
+        app.send({ type = "camera", zoom = 0.7 })
+    end)
+    button(self.fixed, self.left, 62, 708, 100, 70, "拉远", { color = CREAM, size = 22 }, function()
+        app.send({ type = "camera", zoom = 1.4 })
+    end)
+
+    -- Messages.
+    self.toast_box = box(nil, W / 2, 470, 440, 60, SHADE)
+    self.toast_text = label(self.toast_box, 0, 0, "", 23, WHITE)
+    gui.set_enabled(self.toast_box, false)
+
+    self.banner_holder = anchor(nil, gui.ANCHOR_TOP)
+    self.banner_box = box(self.banner_holder, W / 2, -320, 560, 110, SUN)
+    self.banner_title = label(self.banner_box, 0, 20, "", 27)
+    self.banner_text = label(self.banner_box, 0, -22, "", 21)
+    gui.set_enabled(self.banner_box, false)
+
+    self.bubble_box = box(nil, 0, 0, 300, 56, WHITE)
+    self.bubble_text = label(self.bubble_box, 0, 0, "", 21)
+    gui.set_enabled(self.bubble_box, false)
+end
+
+-- ── the toolbar ────────────────────────────────────────────────
+
+local function build_toolbar(self)
+    for _, node in ipairs(self.toolbar_nodes or {}) do gui.delete_node(node) end
+    self.toolbar_nodes = {}
+    clear(self.toolbar)
+    if app.photo or app.film then return end
+    local nodes = self.toolbar_nodes
+    local progress = app.progress
+
+    local back = box(self.bottom, W / 2, 0, W + 400, 10, CREAM)
+    nodes[#nodes + 1] = back
+
+    -- Groups.
+    for index, group in ipairs(catalog.groups) do
+        local selected = group.key == app.group
+        local entry = button(self.toolbar, self.bottom, 56 + (index - 1) * 101, 52, 95, 70, group.name,
+            { color = selected and SUN or WHITE, size = 25 }, function() app.send({ type = "group", key = group.key }) end)
+        nodes[#nodes + 1] = entry.node
+    end
+
+    -- The tools of the selected group, seven to a row.
+    local tools = {}
+    for _, tool in ipairs(catalog.tools) do
+        if tool.group == app.group then tools[#tools + 1] = tool end
+    end
+    local rows = math.ceil(#tools / 7)
+    for index, tool in ipairs(tools) do
+        local column, row = (index - 1) % 7, math.floor((index - 1) / 7)
+        local x, y = 56 + column * 101, 140 + (rows - 1 - row) * 96
+        local unlocked = progress.unlocked[tool.key]
+        local selected = tool.key == app.tool
+        local entry = button(self.toolbar, self.bottom, x, y, 95, 88, tool.name,
+            { color = selected and SUN or (unlocked and WHITE or GREY), size = 21, text_y = -24, ink = unlocked and INK or SOFT },
+            function() app.send({ type = "tool", key = tool.key }) end)
+        nodes[#nodes + 1] = entry.node
+        local swatch = tool.swatch
+        local chip = box(entry.node, 0, 12, 40, 40, swatch and vmath.vector4(swatch[1], swatch[2], swatch[3], unlocked and 1 or 0.35)
+            or vmath.vector4(0.55, 0.72, 0.9, 1), "circle")
+        if not swatch then label(chip, 0, 0, ({ raise = "升", lower = "降", flatten = "平", smooth = "滑" })[tool.key] or "", 22, WHITE) end
+        if not unlocked then label(entry.node, 30, 30, "锁", 16, SOFT) end
+    end
+
+    -- Options of the tool in hand.
+    local y = 140 + rows * 96 - 8
+    local tool = catalog.tool_by_key[app.tool]
+    local undo = button(self.toolbar, self.bottom, 70, y, 120, 58, ("撤销 %d"):format(app.undo),
+        { color = app.undo > 0 and WHITE or GREY, size = 22 }, function() app.send({ type = "undo" }) end)
+    nodes[#nodes + 1] = undo.node
+    local x = 150
+    local function option(text, width, command)
+        local entry = button(self.toolbar, self.bottom, x + width / 2, y, width, 58, text, { color = WHITE, size = 21 },
+            function() app.send({ type = command }) end)
+        nodes[#nodes + 1] = entry.node
+        x = x + width + 8
+    end
+    if tool.type == "sculpt" or tool.type == "paint" or tool.type == "dig" then
+        option("范围 " .. dots(app.radius, #catalog.RADII), 196, "radius")
+    end
+    if tool.type == "sculpt" or tool.type == "dig" then
+        option("力度 " .. dots(app.strength, #catalog.STRENGTHS), 160, "strength")
+    end
+    if tool.type == "place" then
+        option(("一次放 %d 个"):format(catalog.COUNTS[app.count]), 170, "count")
+    end
+    gui.set_position(back, vmath.vector3(W / 2, (y + 40) / 2 - 20, 0))
+    gui.set_size(back, vmath.vector3(W + 400, y + 80, 0))
+    self.toolbar_top = y + 40
+end
+
+-- ── panels ─────────────────────────────────────────────────────
+
+local function close_panel(self)
+    for _, node in ipairs(self.panel_nodes or {}) do gui.delete_node(node) end
+    self.panel_nodes = {}
+    clear(self.panel_buttons)
+    self.slider = nil
+    self.shown_panel = nil
+end
+
+local function sheet(self, title, height, modal)
+    local nodes = self.panel_nodes
+    if modal then
+        local shade = box(nil, W / 2, H / 2, W * 4, H * 4, SHADE, "square")
+        gui.set_adjust_mode(shade, gui.ADJUST_STRETCH)
+        nodes[#nodes + 1] = shade
+        self.panel_buttons[#self.panel_buttons + 1] = { node = shade, on_tap = function() self.panel = nil end }
+    end
+    local y = modal and H / 2 or (self.toolbar_top or 300) + height / 2 + 16
+    local back = box(nil, W / 2, y, 660, height, CREAM)
+    if not modal then gui.set_yanchor(back, gui.ANCHOR_BOTTOM) end
+    nodes[#nodes + 1] = back
+    self.panel_buttons[#self.panel_buttons + 1] = { node = back, on_tap = function() end }
+    label(back, -300, height / 2 - 36, title, 28, INK, gui.PIVOT_W)
+    button(self.panel_buttons, back, 280, height / 2 - 36, 80, 50, "关闭", { color = GREY, size = 20 }, function() self.panel = nil end)
+    return back, height / 2 - 80
+end
+
+local function panel_sky(self)
+    local back, top = sheet(self, "天色", 330, false)
+    -- The day: a slider from midnight to midnight.
+    label(back, -300, top - 6, "时间", 22, SOFT, gui.PIVOT_W)
+    local track = box(back, 30, top - 6, 500, 16, GREY)
+    local knob = box(track, -250 + app.hour / 24 * 500, 0, 44, 44, SUN, "circle")
+    self.hour_text = label(back, 30, top - 42, "", 19, SOFT)
+    self.slider = { track = track, knob = knob }
+    self.panel_buttons[#self.panel_buttons + 1] = { node = track, drag = true, on_tap = function() end }
+    self.panel_buttons[#self.panel_buttons + 1] = { node = knob, drag = true, on_tap = function() end }
+
+    label(back, -300, top - 100, "季节", 22, SOFT, gui.PIVOT_W)
+    for index, name in ipairs(catalog.SEASONS) do
+        button(self.panel_buttons, back, -170 + (index - 1) * 126, top - 100, 114, 60, name,
+            { color = app.season == index and SUN or WHITE, size = 25 }, function() app.send({ type = "season", value = index }) end)
+    end
+    label(back, -300, top - 180, "天气", 22, SOFT, gui.PIVOT_W)
+    for index, weather in ipairs(catalog.WEATHERS) do
+        button(self.panel_buttons, back, -186 + (index - 1) * 102, top - 180, 94, 60, weather.name,
+            { color = app.weather == weather.key and SUN or WHITE, size = 23 }, function() app.send({ type = "weather", key = weather.key }) end)
+    end
+end
+
+local function panel_tasks(self)
+    local back, top = sheet(self, "任务", 900, true)
+    local progress = app.progress
+    for index, task in ipairs(catalog.tasks) do
+        local y = top - (index - 1) * 52
+        local state = index < progress.task and "done" or (index == progress.task and "now" or "later")
+        local row = box(back, 0, y, 610, 46, state == "now" and SUN or (state == "done" and vmath.vector4(0.86, 0.94, 0.84, 1) or WHITE))
+        label(row, -290, 0, ("%d  %s"):format(index, task.title), 22, state == "later" and SOFT or INK, gui.PIVOT_W)
+        local right = state == "done" and "完成" or (state == "now" and ("%d / %d"):format(math.min(task.value(progress), task.goal), task.goal) or "")
+        label(row, 290, 0, right, 20, state == "done" and vmath.vector4(0.3, 0.6, 0.35, 1) or INK, gui.PIVOT_E)
+    end
+end
+
+local function panel_collection(self)
+    local back, top = sheet(self, ("图鉴  %d / %d"):format(progress_m.found_count(app.progress), #catalog.collection), 980, true)
+    local found = app.progress.found
+    local y = top + 8
+    for _, group in ipairs(catalog.collection_groups) do
+        local entries = {}
+        for _, entry in ipairs(catalog.collection) do
+            if entry.group == group.key then entries[#entries + 1] = entry end
+        end
+        label(back, -300, y, group.name, 19, SOFT, gui.PIVOT_W)
+        y = y - 34
+        for index, entry in ipairs(entries) do
+            local column = (index - 1) % 6
+            if index > 1 and column == 0 then y = y - 46 end
+            local known = found[entry.key]
+            local tile = box(back, -252 + column * 101, y, 95, 40, known and vmath.vector4(0.86, 0.94, 0.84, 1) or GREY)
+            label(tile, 0, 0, known and entry.name or "？", #entry.name > 9 and 15 or 18, known and INK or SOFT)
+        end
+        y = y - 50
+    end
+end
+
+local function panel_menu(self)
+    local back, top = sheet(self, "岛屿", 560, true)
+    label(back, -300, top, "岛位", 22, SOFT, gui.PIVOT_W)
+    for index = 1, 3 do
+        local slot = app.slots[index]
+        local text = slot and ("%d 号岛\n%d 级"):format(index, slot.level or 1) or ("%d 号岛\n空着"):format(index)
+        button(self.panel_buttons, back, -200 + (index - 1) * 200, top - 80, 180, 96, text,
+            { color = app.slot == index and SUN or WHITE, size = 22 }, function()
+                app.send({ type = "slot", index = index })
+                self.panel = nil
+            end)
+    end
+    label(back, -300, top - 170, "分享", 22, SOFT, gui.PIVOT_W)
+    button(self.panel_buttons, back, -155, top - 235, 290, 70, "复制岛屿码", { color = LEAF, size = 24 }, function()
+        app.send({ type = "copy_code" })
+    end)
+    button(self.panel_buttons, back, 155, top - 235, 290, 70, "粘贴岛屿码去逛逛", { color = WHITE, size = 22 }, function()
+        app.send({ type = "paste_code" })
+        self.panel = nil
+    end)
+    label(back, 0, top - 300, "把岛屿码发给朋友，或者贴在评论里；对方复制后点右边就能来逛", 17, SOFT)
+    button(self.panel_buttons, back, -155, top - 380, 290, 64, "重新捏一座", { color = GREY, size = 22 }, function()
+        app.send({ type = "new_island" })
+        self.panel = nil
+    end)
+    button(self.panel_buttons, back, 155, top - 380, 290, 64, app.music and "音乐：开" or "音乐：关", { color = WHITE, size = 22 }, function()
+        app.send({ type = "music" })
+    end)
+end
+
+local PANELS = { sky = panel_sky, tasks = panel_tasks, collection = panel_collection, menu = panel_menu }
+
+-- ── photo mode ─────────────────────────────────────────────────
+
+local function build_photo(self)
+    for _, node in ipairs(self.photo_nodes or {}) do gui.delete_node(node) end
+    self.photo_nodes = {}
+    self.flash = nil
+    clear(self.photo_buttons)
+    if not app.photo then return end
+    local nodes = self.photo_nodes
+
+    -- The frame around the picture.
+    local frame = catalog.frames[app.frame]
+    local function edge(x, y, w, h, color, x_anchor, y_anchor)
+        local node = box(nil, x, y, w, h, color, "square")
+        if x_anchor then gui.set_xanchor(node, x_anchor) end
+        if y_anchor then gui.set_yanchor(node, y_anchor) end
+        gui.set_adjust_mode(node, gui.ADJUST_STRETCH)
+        nodes[#nodes + 1] = node
+        return node
+    end
+    if frame == "白边" or frame == "拍立得" then
+        local thick = 26
+        edge(W / 2, H - thick / 2, W, thick, WHITE, nil, gui.ANCHOR_TOP)
+        edge(thick / 2, H / 2, thick, H, WHITE, gui.ANCHOR_LEFT, nil)
+        edge(W - thick / 2, H / 2, thick, H, WHITE, gui.ANCHOR_RIGHT, nil)
+        local bottom = frame == "拍立得" and 300 or 250
+        edge(W / 2, bottom / 2, W, bottom, WHITE, nil, gui.ANCHOR_BOTTOM)
+        if frame == "拍立得" then
+            local caption = label(nil, W / 2, 268, ("捏一座岛  %s"):format(catalog.SEASONS[app.season]), 26, SOFT)
+            gui.set_yanchor(caption, gui.ANCHOR_BOTTOM)
+            nodes[#nodes + 1] = caption
+        end
+    elseif frame == "电影" then
+        local black = vmath.vector4(0, 0, 0, 1)
+        edge(W / 2, H - 80, W, 160, black, nil, gui.ANCHOR_TOP)
+        edge(W / 2, 125, W, 250, black, nil, gui.ANCHOR_BOTTOM)
+    end
+
+    local bar = anchor(nil, gui.ANCHOR_BOTTOM)
+    nodes[#nodes + 1] = bar
+    for index, filter in ipairs(catalog.filters) do
+        button(self.photo_buttons, bar, 66 + (index - 1) * 118, 196, 108, 54, filter.name,
+            { color = app.filter == index and SUN or CREAM, size = 22 }, function() app.send({ type = "filter", index = index }) end)
+    end
+    for index, name in ipairs(catalog.frames) do
+        button(self.photo_buttons, bar, 66 + (index - 1) * 118, 132, 108, 54, name,
+            { color = app.frame == index and SUN or CREAM, size = 22 }, function() app.send({ type = "frame", index = index }) end)
+    end
+    button(self.photo_buttons, bar, W / 2, 56, 150, 74, "按快门", { color = SUN, size = 26 }, function() app.send({ type = "shutter" }) end)
+    button(self.photo_buttons, bar, 80, 56, 120, 60, "返回", { color = CREAM, size = 22 }, function() app.send({ type = "photo", on = false }) end)
+    button(self.photo_buttons, bar, W - 80, 56, 120, 60, "天色", { color = CREAM, size = 22 }, function()
+        self.panel = self.panel == "sky" and nil or "sky"
+    end)
+
+    self.flash = box(nil, W / 2, H / 2, W * 4, H * 4, vmath.vector4(1, 1, 1, 0), "square")
+    gui.set_adjust_mode(self.flash, gui.ADJUST_STRETCH)
+    nodes[#nodes + 1] = self.flash
+end
+
+-- ── keeping up with the game ───────────────────────────────────
+
+local function refresh(self)
+    local progress = app.progress
+    gui.set_text(self.level_text, ("%d 级"):format(app.level))
+    gui.set_size(self.level_bar, vmath.vector3(math.max(10, 96 * app.level_part), 10, 0))
+
+    local task, value, goal = progress_m.current(progress)
+    if task then
+        gui.set_text(self.task_title, ("任务 %d/15  %s  %d/%d"):format(progress.task, task.title, value, goal))
+        gui.set_text(self.task_hint, task.hint)
+    else
+        gui.set_text(self.task_title, "任务都完成啦")
+        gui.set_text(self.task_hint, "想怎么捏就怎么捏")
+    end
+    gui.set_enabled(self.help_button.node, task ~= nil)
+    gui.set_color(self.move_button.node, app.hand == "move" and SUN or CREAM)
+    gui.set_color(self.turn_button.node, app.hand == "turn" and SUN or CREAM)
+
+    local chrome = not app.photo and not app.film
+    gui.set_enabled(self.top, chrome)
+    gui.set_enabled(self.left, chrome)
+    gui.set_enabled(self.right, chrome)
+
+    build_toolbar(self)
+    build_photo(self)
+
+    -- A slider that is being dragged keeps its panel; everything else is rebuilt.
+    local dragging = self.pressed and self.pressed.drag and self.panel == self.shown_panel
+    if not dragging then
+        close_panel(self)
+        if self.panel and PANELS[self.panel] then
+            PANELS[self.panel](self)
+            self.shown_panel = self.panel
+        end
+    end
+
+    if app.toast then
+        gui.set_text(self.toast_text, app.toast.text)
+        gui.set_position(self.toast_box, vmath.vector3(W / 2, app.photo and 330 or (self.toolbar_top or 300) + 60, 0))
+    end
+    gui.set_enabled(self.toast_box, app.toast ~= nil)
+    gui.set_yanchor(self.toast_box, gui.ANCHOR_BOTTOM)
+    if app.banner then
+        gui.set_text(self.banner_title, app.banner.title)
+        gui.set_text(self.banner_text, app.banner.text)
+    end
+    gui.set_enabled(self.banner_box, app.banner ~= nil and not app.photo)
+    self.revision = app.revision
+end
+
+function init(self)
+    msg.post(".", "acquire_input_focus")
+    self.toolbar, self.panel_buttons, self.photo_buttons = {}, {}, {}
+    self.panel_nodes = {}
+    build_fixed(self)
+    self.revision = -1
+end
+
+function update(self, dt)
+    if not app.progress then return end
+    -- A finger on a button keeps the button alive: rebuild once it has let go.
+    local tapping = self.pressed and not self.pressed.drag
+    if not tapping and (self.revision ~= app.revision or self.panel ~= self.shown_panel) then refresh(self) end
+
+    if self.slider and self.shown_panel == "sky" then
+        local hour = math.floor(app.hour)
+        local minute = math.floor((app.hour - hour) * 60)
+        gui.set_text(self.hour_text, ("%02d:%02d"):format(hour, minute))
+        gui.set_position(self.slider.knob, vmath.vector3(-250 + app.hour / 24 * 500, 0, 0))
+    end
+
+    if app.bubble then
+        gui.set_text(self.bubble_text, app.bubble.text)
+        gui.set_screen_position(self.bubble_box, vmath.vector3(app.bubble.x, app.bubble.y + 30, 0))
+    end
+    gui.set_enabled(self.bubble_box, app.bubble ~= nil)
+
+    if self.flash and app.flash then
+        local age = app.now - app.flash
+        gui.set_color(self.flash, vmath.vector4(1, 1, 1, math.max(0, 0.9 - age * 3)))
+    end
+end
+
+-- ── touches ────────────────────────────────────────────────────
+
+local function drag_slider(self, action)
+    local slider = self.slider
+    if not slider then return end
+    local point = gui.screen_to_local(slider.track, vmath.vector3(action.screen_x, action.screen_y, 0))
+    local hour = math.max(0, math.min(23.99, (point.x + 250) / 500 * 24))
+    app.send({ type = "hour", value = hour })
+end
+
+local function find_button(self, x, y)
+    if self.shown_panel then
+        local entry = hit(self.panel_buttons, x, y)
+        if entry then return entry end
+        if self.shown_panel ~= "sky" then return nil end
+    end
+    if app.photo then return hit(self.photo_buttons, x, y) end
+    return hit(self.toolbar, x, y) or hit(self.fixed, x, y)
+end
+
+function on_input(self, action_id, action)
+    if not app.progress then return false end
+    if app.film then return true end
+
+    -- Two fingers move the camera.
+    if action_id == MULTITOUCH then
+        local touches = action.touch
+        if touches and #touches >= 2 and not self.shown_panel then
+            local a, b = touches[1], touches[2]
+            local dx, dy = b.screen_x - a.screen_x, b.screen_y - a.screen_y
+            local distance = math.sqrt(dx * dx + dy * dy)
+            local angle = math.atan2(dy, dx)
+            local mx, my = (a.screen_x + b.screen_x) * 0.5, (a.screen_y + b.screen_y) * 0.5
+            local last = self.gesture
+            if last and distance > 1 and last.distance > 1 then
+                local twist = angle - last.angle
+                if twist > math.pi then twist = twist - math.pi * 2 elseif twist < -math.pi then twist = twist + math.pi * 2 end
+                app.pointer[#app.pointer + 1] = { kind = "gesture", twist = twist, pinch = distance / last.distance,
+                                                  from_x = last.x, from_y = last.y, x = mx, y = my }
+            elseif not last then
+                app.pointer[#app.pointer + 1] = { kind = "gesture", twist = 0, pinch = 1 }
+            end
+            self.gesture = { distance = distance, angle = angle, x = mx, y = my }
+            self.world_touch = false
+            self.pressed = nil
+        elseif not touches or #touches < 2 then
+            self.gesture = nil
+        end
+        return true
+    end
+
+    if action_id ~= TOUCH then return false end
+    if self.gesture then
+        if action.released then self.gesture = nil end
+        return true
+    end
+
+    if action.pressed then
+        local entry = find_button(self, action.x, action.y)
+        if entry then
+            self.pressed = entry
+            if entry.drag then drag_slider(self, action) end
+        elseif self.shown_panel == "sky" then
+            self.panel = nil
+        else
+            self.world_touch = true
+            app.pointer[#app.pointer + 1] = { kind = "down", x = action.screen_x, y = action.screen_y }
+        end
+    elseif action.released then
+        if self.pressed then
+            local entry = self.pressed
+            self.pressed = nil
+            if not entry.drag and entry.on_tap and gui.pick_node(entry.node, action.x, action.y) then entry.on_tap() end
+        elseif self.world_touch then
+            self.world_touch = false
+            app.pointer[#app.pointer + 1] = { kind = "up", x = action.screen_x, y = action.screen_y }
+        end
+    else
+        if self.pressed and self.pressed.drag then
+            drag_slider(self, action)
+        elseif self.world_touch then
+            app.pointer[#app.pointer + 1] = { kind = "move", x = action.screen_x, y = action.screen_y }
+        end
+    end
+    return true
+end

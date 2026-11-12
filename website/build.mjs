@@ -563,6 +563,21 @@ function renderHome(lang, site) {
   </div>
 </section>
 
+<section class="section" id="demo">
+  <div class="container">
+    ${sectionHead(t.demoKicker, t.demoTitle, fill(t.demoLead, site.values))}
+    <div class="demo">
+      <video src="${relativeHref(route, "")}videos/island.mp4" poster="${relativeHref(route, "")}videos/island-poster.png" width="390" height="844" controls muted loop playsinline preload="metadata" aria-label="${escapeHtml(t.demoVideoLabel)}"></video>
+      <div class="demo-notes">
+        <ul>
+          ${t.demoPoints.map((point) => `<li>${text(fill(point, site.values))}</li>`).join("\n          ")}
+        </ul>
+        <p class="more"><a href="${escapeHtml(site.repository)}/tree/main/demo/island" rel="noopener">${text(t.demoLink)} →</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="section" id="screenshots">
   <div class="container">
     ${sectionHead(t.screenshotsKicker, t.screenshotsTitle, fill(t.screenshotsLead, site.values))}
@@ -648,6 +663,7 @@ export function buildSite(options = {}) {
   mkdirSync(join(outDir, "images"), { recursive: true });
   for (const drawn of site.figures) writeFileSync(join(outDir, "images", drawn.file), drawn.svg);
   cpSync(join(REPO_ROOT, "docs", "screenshots"), join(outDir, "screenshots"), { recursive: true });
+  cpSync(join(REPO_ROOT, "docs", "videos"), join(outDir, "videos"), { recursive: true });
   // Tells GitHub Pages to serve the files as they are.
   writeFileSync(join(outDir, ".nojekyll"), "");
   return { outDir, pages };

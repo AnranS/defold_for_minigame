@@ -387,7 +387,8 @@ Exporting into the same folder again is safe.
 | Feature | Status |
 |---|---|
 | Sprites, text, GUI | ran in WeChat DevTools and Douyin DevTools, and on phones on all three platforms |
-| Particles, tile maps, physics, 3D | engine features, untested |
+| 3D: meshes generated at run time, a custom render script and materials | the demo game (`demo/island`) ran in WeChat DevTools |
+| Particles, tile maps, physics | engine features, untested |
 | Touch | ran in WeChat DevTools and Douyin DevTools, and on phones on all three platforms; multi-touch passes simulated-host tests |
 | `sys.save` / `sys.load` | ran in WeChat DevTools and Douyin DevTools, and on phones on all three platforms; read back across restarts in the developer tools, and written to key-value storage on TikTok; `io.*` passes simulated-host tests |
 | `http.request` | passes simulated-host tests |

@@ -1,0 +1,65 @@
+-- Draws the island: solid things with depth, then water and effects blended
+-- on top, then the interface. Camera and lighting come from island.env,
+-- which the game script fills in every frame.
+
+local env = require "island.env"
+
+local IDENTITY = vmath.matrix4()
+
+function init(self)
+    self.solid = render.predicate({ "island" })
+    self.water = render.predicate({ "water" })
+    self.fx = render.predicate({ "fx" })
+    self.gui = render.predicate({ "gui" })
+    self.text = render.predicate({ "debug_text" })
+    self.constants = render.constant_buffer()
+    self.clear = {
+        [graphics.BUFFER_TYPE_COLOR0_BIT] = vmath.vector4(0, 0, 0, 1),
+        [graphics.BUFFER_TYPE_DEPTH_BIT] = 1,
+        [graphics.BUFFER_TYPE_STENCIL_BIT] = 0,
+    }
+    self.options = { constants = self.constants }
+end
+
+function update(self)
+    local width, height = render.get_window_width(), render.get_window_height()
+    if width == 0 or height == 0 then
+        return
+    end
+    env.window_width, env.window_height = width, height
+
+    local constants = self.constants
+    for name, value in pairs(env.constants) do
+        constants[name] = value
+    end
+    self.clear[graphics.BUFFER_TYPE_COLOR0_BIT] = env.constants.fog_color
+
+    render.set_depth_mask(true)
+    render.set_stencil_mask(0xff)
+    render.clear(self.clear)
+    render.set_viewport(0, 0, width, height)
+
+    render.set_view(env.view)
+    render.set_projection(env.projection(width / height))
+
+    render.disable_state(graphics.STATE_BLEND)
+    render.disable_state(graphics.STATE_CULL_FACE)
+    render.enable_state(graphics.STATE_DEPTH_TEST)
+    render.draw(self.solid, self.options)
+
+    render.set_depth_mask(false)
+    render.enable_state(graphics.STATE_BLEND)
+    render.set_blend_func(graphics.BLEND_FACTOR_ONE, graphics.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
+    render.draw(self.water, self.options)
+    render.draw(self.fx, self.options)
+    render.disable_state(graphics.STATE_DEPTH_TEST)
+
+    render.set_view(IDENTITY)
+    render.set_projection(vmath.matrix4_orthographic(0, width, 0, height, -1, 1))
+    render.set_blend_func(graphics.BLEND_FACTOR_SRC_ALPHA, graphics.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
+    render.enable_state(graphics.STATE_STENCIL_TEST)
+    render.draw(self.gui)
+    render.draw(self.text)
+    render.disable_state(graphics.STATE_STENCIL_TEST)
+    render.disable_state(graphics.STATE_BLEND)
+end

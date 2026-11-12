@@ -1,0 +1,40 @@
+#version 140
+
+// Water surface. color0.rgb is the water colour at this depth,
+// color0.a how close the shore is (1 at the waterline, 0 in deep water).
+
+in highp vec4 position;
+in mediump vec3 normal;
+in mediump vec4 color0;
+
+out mediump vec4 var_color;
+out highp vec3 var_world;
+out mediump float var_shore;
+out highp vec2 var_wave;
+
+uniform vs_uniforms
+{
+    highp mat4 mtx_viewproj;
+    mediump vec4 sun_dir;
+    mediump vec4 sun_color;
+    mediump vec4 ambient;
+    highp vec4 fog;
+    highp vec4 eye;
+    mediump vec4 mood;
+};
+
+void main()
+{
+    highp vec3 p = position.xyz;
+    highp float t = fog.z;
+    mediump float deep = 1.0 - color0.a;
+    // normal.x says how much this point of the sea may move: nothing along the map's border.
+    p.y += (sin(t * 1.1 + p.x * 0.8 + p.z * 0.5) + sin(t * 0.7 - p.x * 0.4 + p.z * 0.9)) * 0.035 * deep * fog.w * normal.x;
+
+    mediump vec3 light = ambient.rgb + sun_color.rgb * 0.75;
+    var_color = vec4(color0.rgb * light, mix(0.86, 0.55, color0.a));
+    var_shore = color0.a;
+    var_wave = vec2(p.x + p.z * 0.6, t);
+    var_world = p + eye.xyz * 0.0;
+    gl_Position = mtx_viewproj * vec4(p, 1.0);
+}

@@ -1,0 +1,5 @@
+# The demo game and its video are not something a Defold project or the
+# exporter needs. They are left out of the source archives GitHub builds for a
+# tag, which is what a library dependency downloads.
+/demo export-ignore
+/docs/videos export-ignore

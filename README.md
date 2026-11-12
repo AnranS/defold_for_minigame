@@ -168,6 +168,19 @@ The full compatibility notes are in the [usage guide](docs/USAGE.md).
 | Know why it is built this way | [Research and rationale](docs/RESEARCH_zh.md) (Chinese) |
 | Release a version or certify a Defold version | [Release process](docs/RELEASING.md) |
 
+### The demo game: Pinch an Island
+
+<a href="https://anrans.github.io/defold_for_minigame/en/#demo"><img src="docs/videos/island-poster.png" width="220" alt="The demo game Pinch an Island: a low-poly island with a row of red-roofed cottages, paths, wooden bridges, a clock tower, flower and wheat fields, in a pale sea" /></a>
+
+[`demo/island/`](demo/island/) is a complete 3D game exported with this tool: pinch an island out of the sea, put things down that arrange themselves, and watch islanders move in. The picture links to a [recording](https://anrans.github.io/defold_for_minigame/en/#demo) on the website. It is the first 3D project to run on this adapter; its ground, houses, and islanders are meshes generated at run time. The game's own text is Chinese.
+
+```bash
+node bin/defold-minigame.mjs build --project demo/island --bob path/to/bob.jar \
+  --platform wechat --appid <your app id> --output ../island-wechat
+```
+
+So far it has only run in WeChat DevTools. The demo game and the video are left out of a tag's source archive, which is what a library dependency downloads; clone the repository to get them.
+
 ### The API test app
 
 The Defold project in the repository root is a test app: every function of the `minigame` module is a button, and "Run all" runs the ones that need no tap. Build it and export it in one step with Defold's `bob.jar`:

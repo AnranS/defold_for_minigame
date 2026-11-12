@@ -1,0 +1,12 @@
+script: "/main/hud.gui_script"
+fonts {
+  name: "ui"
+  font: "/assets/fonts/ui.font"
+}
+textures {
+  name: "ui"
+  texture: "/assets/ui/ui.atlas"
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT
+max_nodes: 1024

@@ -1,0 +1,5 @@
+/build/
+/.internal/
+/.editor_settings
+*.DS_Store
+/output/

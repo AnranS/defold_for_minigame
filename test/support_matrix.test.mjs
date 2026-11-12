@@ -347,12 +347,13 @@ test("no real App ID or client key is written into the repository", () => {
   // their command line, never in a file here: not in the test app, a document,
   // a test, or evidence copied from a developer tool.
   const PLACEHOLDER = "wx0123456789abcdef";
-  const folders = ["bin", "docs", "example", "input", "minigame", "runtime", "scripts", "src", "test", "website", ".github"];
+  const folders = ["bin", "demo", "docs", "example", "input", "minigame", "runtime", "scripts", "src", "test", "website", ".github"];
   const files = ["README.md", "README_zh.md", "THIRD_PARTY_NOTICES.md", "game.project", "package.json", "support-matrix.json", ".defignore"];
   const walk = (directory) => readdirSync(join(REPO_ROOT, directory), { withFileTypes: true }).flatMap((entry) => {
     const path = `${directory}/${entry.name}`;
-    if (entry.isDirectory()) return entry.name === "dist" || entry.name === "node_modules" ? [] : walk(path);
-    return /\.(png|wav|ico)$/.test(entry.name) ? [] : [path];
+    // Build products are not in the repository; an export made for trying the demo carries its maker's App ID.
+    if (entry.isDirectory()) return ["dist", "node_modules", "output", "build", ".internal"].includes(entry.name) ? [] : walk(path);
+    return /\.(png|wav|ico|ttf|mp4)$/.test(entry.name) ? [] : [path];
   });
   const found = [];
   for (const path of [...files, ...folders.flatMap(walk)]) {

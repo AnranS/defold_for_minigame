@@ -1,0 +1,988 @@
+-- The game: owns the island, the camera and everything that is drawn in 3D.
+-- The interface (hud.gui_script) sends commands and touches through island.app.
+
+local env = require "island.env"
+local gfx = require "island.gfx"
+local world = require "island.world"
+local catalog = require "island.catalog"
+local build = require "island.build"
+local life_m = require "island.life"
+local sky_m = require "island.sky"
+local progress_m = require "island.progress"
+local demo = require "island.demo"
+local app = require "island.app"
+local minigame = require "minigame.minigame"
+
+local SAVE_FILE = sys.get_save_file("pinch_an_island", "save")
+local UNDO_LIMIT = 40
+local SLOT_LEVEL = { 1, 3, 6 }              -- island level that opens each slot
+local FOG = {                                -- where fog starts, measured from the camera target, and how deep it is
+    sunny = { 30, 190 }, rainbow = { 30, 190 }, rain = { 6, 110 }, snow = { 6, 120 }, fog = { -14, 52 },
+}
+local UP = vmath.vector3(0, 1, 0)
+local sin, cos, floor, max, min, abs = math.sin, math.cos, math.floor, math.max, math.min, math.abs
+
+-- ── camera ─────────────────────────────────────────────────────
+
+--- Keeps the place the camera is heading for inside its limits.
+local function limit_goal(goal)
+    goal.pitch = max(0.12, min(1.4, goal.pitch))
+    goal.dist = max(2.6, min(130, goal.dist))
+    goal.tx = max(-world.HALF, min(world.HALF, goal.tx))
+    goal.tz = max(-world.HALF, min(world.HALF, goal.tz))
+end
+
+--- Moves the camera a part of the way to its goal, and lets a flick run out.
+local function ease_camera(self, dt)
+    local cam, goal = self.cam, self.goal
+    if self.spin and not self.stroke then
+        goal.yaw = goal.yaw + self.spin.yaw * dt
+        goal.pitch = goal.pitch + self.spin.pitch * dt
+        local fade = math.exp(-dt * 4.5)
+        self.spin.yaw, self.spin.pitch = self.spin.yaw * fade, self.spin.pitch * fade
+        if abs(self.spin.yaw) + abs(self.spin.pitch) < 0.02 then self.spin = nil end
+    end
+    if self.glide and not self.stroke then
+        goal.tx, goal.tz = goal.tx + self.glide.x * dt, goal.tz + self.glide.z * dt
+        local fade = math.exp(-dt * 5)
+        self.glide.x, self.glide.z = self.glide.x * fade, self.glide.z * fade
+        if abs(self.glide.x) + abs(self.glide.z) < 0.05 then self.glide = nil end
+    end
+    limit_goal(goal)
+    local k = 1 - math.exp(-dt * 16)
+    cam.yaw = cam.yaw + (goal.yaw - cam.yaw) * k
+    cam.pitch = cam.pitch + (goal.pitch - cam.pitch) * k
+    cam.dist = cam.dist + (goal.dist - cam.dist) * k
+    cam.tx = cam.tx + (goal.tx - cam.tx) * k
+    cam.tz = cam.tz + (goal.tz - cam.tz) * k
+end
+
+local function update_camera(self)
+    local cam = self.cam
+    -- The camera looks at the ground where it stands, so that coming close
+    -- means coming close to the island and not to the sea under it.
+    local ground = max(0, world.height_at(self.w, cam.tx, cam.tz))
+    cam.ty = (cam.ty or ground) + (ground - (cam.ty or ground)) * 0.15
+    local horizontal = cos(cam.pitch) * cam.dist
+    local eye = vmath.vector3(cam.tx + sin(cam.yaw) * horizontal, cam.ty + 0.3 + sin(cam.pitch) * cam.dist,
+        cam.tz + cos(cam.yaw) * horizontal)
+    eye.y = max(eye.y, max(0, world.height_at(self.w, eye.x, eye.z)) + 0.35)
+    local target = vmath.vector3(cam.tx, cam.ty + 0.3, cam.tz)
+    env.view = vmath.matrix4_look_at(eye, target, UP)
+    self.eye = eye
+    local forward = vmath.normalize(target - eye)
+    local right = vmath.normalize(vmath.cross(forward, UP))
+    local up = vmath.cross(right, forward)
+    self.basis = { rx = right.x, ry = right.y, rz = right.z, ux = up.x, uy = up.y, uz = up.z, tx = cam.tx, tz = cam.tz, dist = cam.dist }
+    self.view_proj = env.projection(env.window_width / env.window_height) * env.view
+    self.inverse = vmath.inv(self.view_proj)
+end
+
+--- The ray under a screen position: a point on it and its direction.
+local function ray(self, sx, sy)
+    local nx, ny = sx / env.window_width * 2 - 1, sy / env.window_height * 2 - 1
+    local near = self.inverse * vmath.vector4(nx, ny, -1, 1)
+    local far = self.inverse * vmath.vector4(nx, ny, 1, 1)
+    local ax, ay, az = near.x / near.w, near.y / near.w, near.z / near.w
+    local dx, dy, dz = far.x / far.w - ax, far.y / far.w - ay, far.z / far.w - az
+    local length = math.sqrt(dx * dx + dy * dy + dz * dz)
+    return ax, ay, az, dx / length, dy / length, dz / length
+end
+
+--- The point of the ground (or the water surface) under a screen position, or nil over the sky.
+local function pick(self, sx, sy)
+    local ax, ay, az, dx, dy, dz = ray(self, sx, sy)
+    if dy >= -0.01 then return nil end
+    local w = self.w
+    -- Start where the ray enters the slab the island can be in, then walk down.
+    local t = max(0, (world.MAX_H + 0.5 - ay) / dy)
+    local last = t
+    for _ = 1, 600 do
+        local y = ay + dy * t
+        if y <= max(0, world.height_at(w, ax + dx * t, az + dz * t)) then
+            local lo, hi = last, t
+            for _ = 1, 6 do
+                local mid = (lo + hi) * 0.5
+                if ay + dy * mid <= max(0, world.height_at(w, ax + dx * mid, az + dz * mid)) then hi = mid else lo = mid end
+            end
+            return ax + dx * hi, az + dz * hi
+        end
+        if y < -0.5 then break end
+        last = t
+        t = t + 0.2
+    end
+    return nil
+end
+
+--- Where a screen position meets the level ground the camera looks at (for dragging the island).
+local function pick_plane(self, sx, sy)
+    local ax, ay, az, dx, dy, dz = ray(self, sx, sy)
+    if dy >= -0.02 then return nil end
+    local t = ((self.cam.ty or 0) + 0.3 - ay) / dy
+    if t < 0 then return nil end
+    return ax + dx * t, az + dz * t
+end
+
+--- Screen position of a world point, or nil behind the camera.
+local function project(self, x, y, z)
+    local p = self.view_proj * vmath.vector4(x, y, z, 1)
+    if p.w <= 0 then return nil end
+    return (p.x / p.w * 0.5 + 0.5) * env.window_width, (p.y / p.w * 0.5 + 0.5) * env.window_height
+end
+
+-- ── sky ────────────────────────────────────────────────────────
+
+local function update_sky(self)
+    local state = sky_m.at(app.hour, app.season, app.weather)
+    state.weather, state.season = app.weather, app.season
+    self.sky = state
+    local constants = env.constants
+    constants.sun_dir = vmath.vector4(state.sun_dir[1], state.sun_dir[2], state.sun_dir[3], 0)
+    constants.sun_color = vmath.vector4(state.sun_color[1], state.sun_color[2], state.sun_color[3], 1)
+    constants.ambient = vmath.vector4(state.ambient[1], state.ambient[2], state.ambient[3], 1)
+    constants.fog_color = vmath.vector4(state.sky[1], state.sky[2], state.sky[3], 1)
+    constants.mood = vmath.vector4(state.night, state.snow, 0, 0)
+    local grade = catalog.filters[app.filter].grade
+    constants.grade = vmath.vector4(grade[1], grade[2], grade[3], grade[4])
+end
+
+-- ── music ──────────────────────────────────────────────────────
+
+--- Starts or stops the background tune. Where the host gives the engine no
+-- sound (TikTok by default), the host's own player plays the same file,
+-- which the export ships with --assets assets/audio.
+local function play_music(self, on)
+    if not minigame.is_available() or minigame.has_engine_audio() then
+        if on then sound.play("#bgm") else sound.stop("#bgm") end
+        return
+    end
+    if on and not self.host_music then
+        local player, err = minigame.inner_audio("assets/bgm.wav", { loop = true, volume = 0.5 })
+        if not player then
+            minigame.log("[island] no music on this host: " .. tostring(err), "warn")
+            return
+        end
+        self.host_music = player
+    end
+    if self.host_music then
+        if on then self.host_music:play() else self.host_music:pause() end
+    end
+end
+
+-- ── saving ─────────────────────────────────────────────────────
+
+local function save_now(self)
+    self.save_in = nil
+    local stats = world.stats(self.w)
+    self.store.slots[app.slot] = { code = world.to_code(self.w), land = stats.land, level = app.level }
+    self.store.slot = app.slot
+    self.store.progress = progress_m.save(app.progress)
+    self.store.sky = { hour = app.hour, season = app.season, weather = app.weather }
+    sys.save(SAVE_FILE, self.store)
+    for index = 1, 3 do
+        local slot = self.store.slots[index]
+        app.slots[index] = slot and { land = slot.land, level = slot.level } or false
+    end
+end
+
+local function save_soon(self)
+    self.save_in = self.save_in or 1.5
+end
+
+-- ── what is on the island ──────────────────────────────────────
+
+--- Looks at the island again: who lives here, what is new, which tasks are done.
+local function review(self)
+    local w = self.w
+    self.features = build.features(w)
+    local stats = world.stats(w)
+    life_m.set_population(self.life, w, self.features, self.features.connected * 2)
+    local population = #self.life.people
+    local events = progress_m.evaluate(app.progress, stats, self.features, population, self.sky)
+    local level, part = catalog.level(stats, population)
+    if level > app.level and self.started then app.say(("小岛升到 %d 级啦"):format(level), 3) end
+    app.level, app.level_part = level, part
+    local found = 0
+    for _, event in ipairs(events) do
+        if event.type == "task" then
+            local task = catalog.tasks[event.index]
+            local names = {}
+            for _, key in ipairs(event.rewards) do names[#names + 1] = catalog.tool_by_key[key].name end
+            app.banner = {
+                title = "完成：" .. task.title,
+                text = #names > 0 and ("解锁 " .. table.concat(names, "、")) or "这座岛已经很像样了",
+                until_time = app.now + 3.2,
+            }
+        elseif event.type == "found" then
+            found = found + 1
+        end
+    end
+    if found > 0 and self.started and not app.banner then app.say(("图鉴 +%d"):format(found), 1.6) end
+    app.changed()
+end
+
+local function remember(self)
+    self.before = { data = world.encode(self.w), painted = app.progress.count.painted, dug = app.progress.count.dug }
+end
+
+local function push_undo(self)
+    local stack = self.undo
+    stack[#stack + 1] = self.before
+    if #stack > UNDO_LIMIT then table.remove(stack, 1) end
+    app.undo = #stack
+end
+
+local function undo(self)
+    local step = table.remove(self.undo)
+    if not step then
+        app.say("没有可以撤销的了")
+        return
+    end
+    world.decode(self.w, step.data)
+    app.progress.count.painted, app.progress.count.dug = step.painted, step.dug
+    app.undo = #self.undo
+end
+
+-- ── tools ──────────────────────────────────────────────────────
+
+local function radius_of(tool)
+    local radius = catalog.RADII[app.radius]
+    if tool.type == "dig" then return max(0.7, radius * tool.scale) end
+    return radius
+end
+
+local function complain(self, text)
+    if (self.complained or -10) + 1.5 < app.now then
+        self.complained = app.now
+        app.say(text, 1.6)
+    end
+end
+
+--- Puts one object down, unless something is in the way. Returns true, or false and why not.
+local function place_one(self, cx, cz, tool)
+    local w = self.w
+    if not world.buildable(w, cx, cz) then
+        return false, world.is_wet(w, cx, cz) and "水里放不了，先把地抬出来" or "这里太陡了，先抹平"
+    end
+    if world.get_obj(w, cx, cz) ~= 0 or world.has_road(w, cx, cz) then return false, "这里已经有东西了" end
+    world.place(w, cx, cz, tool.item)
+    if tool.building then world.level_cell(w, cx, cz) end
+    return true
+end
+
+--- One touch of the current tool at a point of the ground. Returns true when the island changed.
+local function apply_tool(self, x, z, dt, first)
+    local stroke = self.stroke
+    local tool = stroke.tool
+    local w = self.w
+    local changed = false
+    local cx, cz = world.cell_at(x, z)
+    if not world.reachable(x, z) and tool.type ~= "erase" then
+        if first then complain(self, "这里离得太远了，小岛只能长在中间这片海里") end
+        return false
+    end
+    if tool.type == "sculpt" then
+        if first and tool.mode == "flatten" then stroke.target = world.height_at(w, x, z) end
+        changed = world.sculpt(w, tool.mode, x, z, radius_of(tool), catalog.STRENGTHS[app.strength] * dt * 2.4, stroke.target)
+    elseif tool.type == "dig" then
+        local was_wet = cx and world.is_wet(w, cx, cz)
+        changed = world.sculpt(w, "dig", x, z, radius_of(tool), catalog.STRENGTHS[app.strength] * dt * 2.4)
+        if cx and not was_wet and world.is_wet(w, cx, cz) then
+            app.progress.count.dug = app.progress.count.dug + 1
+        end
+    elseif tool.type == "paint" then
+        local painted = world.paint(w, tool.surface, x, z, radius_of(tool))
+        app.progress.count.painted = app.progress.count.painted + painted
+        changed = painted > 0
+    elseif cx then
+        if tool.type == "road" then
+            -- Fill the gap between two touches, so that a quick finger leaves no holes.
+            local fx, fz = stroke.last_cx or cx, stroke.last_cz or cz
+            local steps = max(abs(cx - fx), abs(cz - fz), 1)
+            for i = 0, steps do
+                local rx = floor(fx + (cx - fx) * i / steps + 0.5)
+                local rz = floor(fz + (cz - fz) * i / steps + 0.5)
+                if world.get_obj(w, rx, rz) == 0 and world.set_road(w, rx, rz, true) then changed = true end
+            end
+            stroke.last_cx, stroke.last_cz = cx, cz
+        elseif tool.type == "erase" then
+            changed = world.erase(w, cx, cz)
+        elseif tool.type == "place" and first then
+            local wanted = catalog.COUNTS[app.count]
+            local ok, why = place_one(self, cx, cz, tool)
+            local done, tries = ok and 1 or 0, 0
+            while wanted > 1 and done < wanted and tries < 40 do
+                tries = tries + 1
+                if place_one(self, cx + math.random(-3, 3), cz + math.random(-3, 3), tool) then done = done + 1 end
+            end
+            if done == 0 then complain(self, why or "这里放不下") end
+            changed = done > 0
+        end
+    end
+    if changed then stroke.changed = true end
+    return changed
+end
+
+local function finish_stroke(self, stroke)
+    if stroke.changed then
+        world.quantize(self.w)
+        world.touch_all(self.w)
+        push_undo(self)
+        review(self)
+        save_soon(self)
+    end
+end
+
+local HAND = { type = "hand" }
+
+local function begin_stroke(self, sx, sy)
+    local tool = app.hand and HAND or catalog.tool_by_key[app.tool]
+    local stroke = { tool = tool, sx = sx, sy = sy, moved = false }
+    self.stroke = stroke
+    if tool.type == "hand" then
+        stroke.mode = app.hand
+        stroke.last_x, stroke.last_y, stroke.last_time = sx, sy, app.now
+        self.spin, self.glide = nil, nil
+        return
+    end
+    remember(self)
+    stroke.x, stroke.z = pick(self, sx, sy)
+    if stroke.x then apply_tool(self, stroke.x, stroke.z, 1 / 60, true) end
+end
+
+local function move_stroke(self, sx, sy)
+    local stroke = self.stroke
+    if not stroke then return end
+    if abs(sx - stroke.sx) + abs(sy - stroke.sy) > env.window_width * 0.02 then stroke.moved = true end
+    local tool = stroke.tool
+    if tool.type == "hand" and stroke.mode == "move" then
+        -- The finger drags the island: the ground under it stays under it.
+        local ax, az = pick_plane(self, stroke.last_x, stroke.last_y)
+        local bx, bz = pick_plane(self, sx, sy)
+        if ax and bx then
+            local mx, mz = ax - bx, az - bz
+            self.goal.tx, self.goal.tz = self.goal.tx + mx, self.goal.tz + mz
+            local elapsed = max(app.now - stroke.last_time, 1 / 120)
+            local glide = self.glide or { x = 0, z = 0 }
+            glide.x, glide.z = glide.x * 0.5 + mx / elapsed * 0.5, glide.z * 0.5 + mz / elapsed * 0.5
+            self.glide = glide
+        end
+        stroke.last_x, stroke.last_y, stroke.last_time = sx, sy, app.now
+        return
+    end
+    if tool.type == "hand" then
+        -- The finger turns the island: sideways around it, up and down over it.
+        local yaw = -(sx - stroke.last_x) / env.window_width * 3.6
+        local pitch = -(sy - stroke.last_y) / env.window_height * 2.4
+        self.goal.yaw, self.goal.pitch = self.goal.yaw + yaw, self.goal.pitch + pitch
+        local elapsed = max(app.now - stroke.last_time, 1 / 120)
+        local spin = self.spin or { yaw = 0, pitch = 0 }
+        spin.yaw, spin.pitch = spin.yaw * 0.5 + yaw / elapsed * 0.5, spin.pitch * 0.5 + pitch / elapsed * 0.5
+        self.spin = spin
+        stroke.last_x, stroke.last_y, stroke.last_time = sx, sy, app.now
+        return
+    end
+    stroke.x, stroke.z = pick(self, sx, sy)
+    if stroke.x and (tool.type == "paint" or tool.type == "road" or tool.type == "erase") then
+        apply_tool(self, stroke.x, stroke.z, 1 / 60, false)
+    end
+end
+
+local function tap_islander(self, sx, sy)
+    local best, best_d = nil, (env.window_width * 0.07) ^ 2
+    for _, person in ipairs(self.life.people) do
+        local px, py = project(self, person.x, person.y + 0.25, person.z)
+        if px then
+            local d = (px - sx) ^ 2 + (py - sy) ^ 2
+            if d < best_d then best, best_d = person, d end
+        end
+    end
+    if not best then return false end
+    self.bubble = { person = best, text = life_m.line(best, self.sky), until_time = app.now + 2.6 }
+    local events = {}
+    progress_m.find(app.progress, best.state == "fish" and "fisher" or (best.state == "walk" and "walker" or "dreamer"), events)
+    if #events > 0 then app.say("图鉴 +1", 1.4) end
+    return true
+end
+
+local function end_stroke(self, sx, sy)
+    local stroke = self.stroke
+    if not stroke then return end
+    self.stroke = nil
+    if stroke.tool.type == "hand" then
+        if self.profile then
+            minigame.log(("[island] hand stroke: mode %s, moved %s, goal %.2f %.2f yaw %.2f"):format(
+                tostring(stroke.mode), tostring(stroke.moved), self.goal.tx, self.goal.tz, self.goal.yaw))
+        end
+        if not stroke.moved then
+            self.spin, self.glide = nil, nil
+            if not tap_islander(self, sx, sy) and #self.life.people == 0 then
+                complain(self, "房子挨着路，岛民才会搬来")
+            end
+        elseif app.now - stroke.last_time > 0.08 then
+            self.spin, self.glide = nil, nil      -- the finger rested before it let go: no flick
+        end
+        return
+    end
+    finish_stroke(self, stroke)
+end
+
+-- ── commands from the interface ────────────────────────────────
+
+--- Replaces the island with the one in `code`, or with open sea. The old one can be undone.
+local function load_island(self, code, keep_undo)
+    local fresh = world.new()
+    if code and not world.from_code(fresh, code) then return false end
+    remember(self)
+    self.w = fresh
+    self.life = life_m.new()
+    if keep_undo then
+        push_undo(self)
+    else
+        self.undo = {}
+        app.undo = 0
+    end
+    return true
+end
+
+--- The "do it for me" of each task.
+local HELP = {
+    function(self) demo.steps.land(self.w) end,
+    function(self) app.progress.count.painted = app.progress.count.painted + demo.steps.paint(self.w) end,
+    function(self) app.progress.count.dug = app.progress.count.dug + demo.steps.river(self.w) end,
+    function(self) demo.steps.house(self.w) end,
+    function(self) demo.steps.trees(self.w) end,
+    function(self) demo.steps.road(self.w) end,
+    function(self) demo.steps.road(self.w) demo.steps.row(self.w) end,
+    function(self) demo.steps.row(self.w) end,
+    function(self) demo.steps.dock(self.w) end,
+    function(self) demo.steps.road(self.w) end,
+    function() app.hour = 18 app.progress.flag.sunset = true end,
+    function(self)
+        for season = 1, 4 do app.progress.seasons_seen[season] = true end
+        app.progress.count.seasons = 4
+        app.season = app.season % 4 + 1
+        world.touch_all(self.w)
+    end,
+    function(self) self.rained = true app.weather = "rainbow" app.progress.flag.rainbow = true end,
+    function() app.progress.flag.photo = true app.say("咔嚓！拍好了") end,
+    function() app.progress.flag.shared = true end,
+}
+
+local function handle(self, command)
+    local kind = command.type
+    if kind == "tool" then
+        if app.progress.unlocked[command.key] then
+            app.tool = command.key
+            app.group = catalog.tool_by_key[command.key].group
+            app.hand = false
+        else
+            for _, task in ipairs(catalog.tasks) do
+                for _, key in ipairs(task.reward) do
+                    if key == command.key then app.say(("完成任务「%s」后解锁"):format(task.title), 2.4) end
+                end
+            end
+        end
+    elseif kind == "group" then
+        app.group = command.key
+        app.hand = false
+        for _, tool in ipairs(catalog.tools) do
+            if tool.group == command.key and app.progress.unlocked[tool.key] then
+                app.tool = tool.key
+                break
+            end
+        end
+    elseif kind == "radius" then
+        app.radius = app.radius % #catalog.RADII + 1
+    elseif kind == "strength" then
+        app.strength = app.strength % #catalog.STRENGTHS + 1
+    elseif kind == "count" then
+        app.count = app.count % #catalog.COUNTS + 1
+    elseif kind == "undo" then
+        undo(self)
+    elseif kind == "tidy" then
+        remember(self)
+        local fixed = world.tidy(self.w, catalog.is_building)
+        if fixed > 0 then
+            world.touch_all(self.w)
+            push_undo(self)
+            app.say(("整理好了 %d 处"):format(fixed))
+        else
+            app.say("已经很整齐啦")
+        end
+    elseif kind == "camera" then
+        self.goal.yaw = self.goal.yaw + (command.yaw or 0)
+        self.goal.dist = self.goal.dist * (command.zoom or 1)
+        self.goal.pitch = self.goal.pitch + (command.pitch or 0)
+        return
+    elseif kind == "music" then
+        app.music = not app.music
+        play_music(self, app.music)
+        self.store.music_off = not app.music
+        app.changed()
+        save_soon(self)
+        return
+    elseif kind == "hand" then
+        -- Tapping the mode that is on turns it off again, back to the tool.
+        app.hand = app.hand ~= command.mode and command.mode or false
+        if app.hand == "move" then
+            app.say("拖动小岛到想看的地方；点一下岛民会说话", 2.6)
+        elseif app.hand == "turn" then
+            app.say("左右拖动绕着岛转，上下拖动换俯仰", 2.6)
+        end
+        app.changed()
+        return
+    elseif kind == "hour" then
+        app.hour = max(0, min(23.99, command.value))
+        if app.hour >= 17 and app.hour <= 19.5 then app.progress.flag.sunset = true end
+    elseif kind == "season" then
+        if command.value ~= app.season then
+            app.season = command.value
+            if not app.progress.seasons_seen[app.season] then
+                app.progress.seasons_seen[app.season] = true
+                app.progress.count.seasons = app.progress.count.seasons + 1
+            end
+            world.touch_all(self.w)
+        end
+    elseif kind == "weather" then
+        if command.key == "rainbow" and not self.rained then
+            app.say("彩虹要等雨后：先下一场雨")
+        else
+            if command.key == "rain" then self.rained = true end
+            if command.key == "rainbow" then app.progress.flag.rainbow = true end
+            app.weather = command.key
+        end
+    elseif kind == "photo" then
+        app.photo = command.on
+        if not command.on then app.filter, app.frame = 1, 1 end
+    elseif kind == "filter" then
+        app.filter = command.index
+    elseif kind == "frame" then
+        app.frame = command.index
+    elseif kind == "shutter" then
+        app.progress.flag.photo = true
+        app.flash = app.now
+        app.say("咔嚓！现在截屏，就能晒出去", 2.6)
+    elseif kind == "copy_code" then
+        local code = world.to_code(self.w)
+        app.code = code
+        app.progress.flag.shared = true
+        if minigame.is_available() then
+            minigame.set_clipboard("来逛逛我捏的小岛：" .. code, function(ok)
+                app.say(ok and "岛屿码已复制，发给朋友吧" or "复制没成功，再试一次")
+            end)
+        else
+            app.say("岛屿码已生成")
+        end
+    elseif kind == "paste_code" then
+        local function visit(text)
+            if load_island(self, text, true) then
+                app.say("到朋友的岛上啦，撤销可以回来", 3)
+            else
+                app.say("剪贴板里没有岛屿码")
+            end
+            review(self)
+        end
+        if minigame.is_available() then
+            minigame.get_clipboard(function(text) visit(text or "") end)
+        else
+            visit(command.text or "")
+        end
+    elseif kind == "slot" then
+        local index = command.index
+        if index ~= app.slot then
+            if app.level < SLOT_LEVEL[index] and not self.store.slots[index] then
+                app.say(("小岛 %d 级后开放这个岛位"):format(SLOT_LEVEL[index]))
+            else
+                save_now(self)
+                app.slot = index
+                local slot = self.store.slots[index]
+                load_island(self, slot and slot.code or nil, false)
+                app.say(slot and ("来到 %d 号岛"):format(index) or ("%d 号岛：一片新的海"):format(index))
+            end
+        end
+    elseif kind == "new_island" then
+        load_island(self, nil, true)
+        app.say("重新开始。撤销可以找回刚才的岛", 3)
+    elseif kind == "help" then
+        local index = app.progress.task
+        if HELP[index] then
+            remember(self)
+            HELP[index](self)
+            world.tidy(self.w, catalog.is_building)
+            world.quantize(self.w)
+            world.touch_all(self.w)
+            push_undo(self)
+            update_sky(self)
+            review(self)
+            if app.progress.task == index then app.say("这里地方不够，先多捏一点陆地", 2.6) end
+        end
+    elseif kind == "demo" then
+        remember(self)
+        demo.build(self.w)
+        app.progress.count.painted, app.progress.count.dug = 40, 12
+        push_undo(self)
+    end
+    update_sky(self)
+    review(self)
+    save_soon(self)
+end
+
+-- ── the film ───────────────────────────────────────────────────
+-- A scene for recording: the island builds itself step by step while the
+-- camera circles, comes down to the village, and the day turns to night.
+
+local FILM = {
+    { 1.0, "land" }, { 2.2, "paint" }, { 3.2, "river" }, { 4.2, "house" }, { 5.0, "trees" },
+    { 5.8, "road" }, { 6.8, "row" }, { 7.6, "dock" }, { 8.4, "decor" },
+}
+
+local function smooth(t)
+    t = max(0, min(1, t))
+    return t * t * (3 - 2 * t)
+end
+
+local function film_update(self, dt)
+    local film = self.film
+    film.t = film.t + dt
+    local t = film.t
+    local step = FILM[film.next]
+    while step and t >= step[1] do
+        local result = demo.steps[step[2]](self.w)
+        if step[2] == "paint" then app.progress.count.painted = app.progress.count.painted + result end
+        if step[2] == "river" then app.progress.count.dug = app.progress.count.dug + result end
+        world.tidy(self.w, catalog.is_building)
+        world.quantize(self.w)
+        world.touch_all(self.w)
+        review(self)
+        film.next = film.next + 1
+        step = FILM[film.next]
+    end
+
+    local goal = self.goal
+    goal.yaw = 0.4 + t * 0.2
+    if t < 9.4 then                                  -- from high above, coming closer while it grows
+        local s = smooth(t / 9.4)
+        goal.dist, goal.pitch, goal.tx, goal.tz = 80 - 44 * s, 0.98 - 0.16 * s, 0, 1
+    elseif t < 13.2 then                             -- down to the row of houses
+        local s = smooth((t - 9.4) / 2.4)
+        goal.dist, goal.pitch, goal.tx, goal.tz = 36 - 27 * s, 0.82 - 0.4 * s, -6.2 * s, 1 + 1.4 * s
+    else                                             -- and back out for the night
+        local s = smooth((t - 13.2) / 2.6)
+        goal.dist, goal.pitch, goal.tx, goal.tz = 9 + 23 * s, 0.42 + 0.3 * s, -6.2 * (1 - s), 2.4 - 1.4 * s
+    end
+
+    local hour = 10
+    if t > 10.6 then hour = 10 + 8.4 * smooth((t - 10.6) / 2.8) end
+    if t > 13.4 then hour = 18.4 + 3.4 * smooth((t - 13.4) / 2.0) end
+    if hour ~= app.hour then
+        app.hour = hour
+        update_sky(self)
+    end
+end
+
+-- ── engine callbacks ───────────────────────────────────────────
+
+function init(self)
+    math.randomseed(os.time())
+    self.cam = { yaw = 0.55, pitch = 0.86, dist = 60, tx = 0, tz = 1 }
+    self.undo = {}
+    self.life = life_m.new()
+    self.w = world.new()
+
+    local store = sys.load(SAVE_FILE)
+    if type(store) ~= "table" or type(store.slots) ~= "table" then store = { slots = {} } end
+    self.store = store
+    app.progress = progress_m.load(store.progress)
+    if not store.progress then app.progress.tutorial = 1 end
+    app.slot = (store.slot == 2 or store.slot == 3) and store.slot or 1
+    app.music = not store.music_off
+    if type(store.sky) == "table" then
+        app.hour = tonumber(store.sky.hour) or 10
+        app.season = max(1, min(4, tonumber(store.sky.season) or 2))
+        app.weather = FOG[store.sky.weather] and store.sky.weather or "sunny"
+    end
+    local slot = store.slots[app.slot]
+    if slot and slot.code then world.from_code(self.w, slot.code) end
+    for index = 1, 3 do
+        local saved = store.slots[index]
+        app.slots[index] = saved and { land = saved.land, level = saved.level } or false
+    end
+
+    -- Scenes for automated checks: the developer-tool probe sets these in host storage.
+    if minigame.is_available() then
+        local scene = minigame.storage_get("island.demo", "")
+        if scene ~= "" then
+            self.w = world.new()
+            app.progress = progress_m.new()
+            app.progress.tutorial = 0
+            if scene == "build" then
+                demo.build(self.w)
+                app.progress.count.painted, app.progress.count.dug = 40, 12
+            elseif scene == "film" then
+                self.film = { t = 0, next = 1 }
+                app.film = true
+                math.randomseed(11)
+            end
+            app.hour = tonumber(minigame.storage_get("island.hour", "10")) or 10
+            app.season = tonumber(minigame.storage_get("island.season", "2")) or 2
+            app.weather = minigame.storage_get("island.weather", "sunny")
+            if not FOG[app.weather] then app.weather = "sunny" end
+            self.cam.yaw = tonumber(minigame.storage_get("island.yaw", "0.55")) or 0.55
+            self.cam.dist = tonumber(minigame.storage_get("island.dist", "56")) or 56
+            self.cam.pitch = tonumber(minigame.storage_get("island.pitch", "0.86")) or 0.86
+            app.photo = minigame.storage_get("island.photo", "") == "1"
+            local hand = minigame.storage_get("island.hand", "")
+            app.hand = (hand == "move" or hand == "turn") and hand or false
+            if minigame.storage_get("island.profile", "") == "1" then
+                self.profile = { chunks = 0, life = 0, actors = 0, fx = 0, frames = 0 }
+            end
+            self.cam.tx = tonumber(minigame.storage_get("island.tx", "0")) or 0
+            self.cam.tz = tonumber(minigame.storage_get("island.tz", "1")) or 1
+            self.scene = true
+        end
+    end
+
+    self.chunks = {}
+    self.props_dirty = {}
+    for index = 1, world.CHUNKS * world.CHUNKS do
+        self.chunks[index] = { ground = gfx.new("#solid_factory"), props = gfx.new("#solid_factory"), water = gfx.new("#water_factory") }
+    end
+    self.ocean = gfx.new("#water_factory")
+    gfx.upload(self.ocean, build.ocean(460))
+    self.sea_floor = gfx.new("#solid_factory")
+    gfx.upload(self.sea_floor, build.sea_floor(460))
+    self.actors = gfx.new("#solid_factory")
+    self.bodies = {}
+    self.sails = {}
+    self.boats = {}
+    for index = 1, #self.life.boats do
+        self.boats[index] = gfx.new("#solid_factory")
+        gfx.upload(self.boats[index], life_m.boat_geometry())
+    end
+    play_music(self, app.music)
+    self.fx = gfx.new("#fx_factory")
+
+    env.fov, env.near, env.far = math.rad(50), 0.15, 1000
+    self.goal = { yaw = self.cam.yaw, pitch = self.cam.pitch, dist = self.cam.dist, tx = self.cam.tx, tz = self.cam.tz }
+    update_camera(self)
+    update_sky(self)
+    review(self)
+    self.started = true
+    minigame.log(("[island] ready: %d land cells, task %d, level %d, %d islanders"):format(
+        app.progress.stats.land, app.progress.task, app.level, #self.life.people))
+end
+
+--- Islanders and boats are meshes of their own: built once, then only moved.
+local function place_movers(self)
+    local people = self.life.people
+    for index, person in ipairs(people) do
+        local body = self.bodies[index]
+        if not body then
+            body = gfx.new("#solid_factory")
+            self.bodies[index] = body
+        end
+        if body.owner ~= person then
+            gfx.upload(body, life_m.person_geometry(person))
+            body.owner = person
+        end
+        local x, y, z, angle, lean = life_m.person_pose(person)
+        go.set_position(vmath.vector3(x, y, z), body.id)
+        local turn = vmath.quat_rotation_y(angle)
+        if lean ~= 0 then turn = turn * vmath.quat_rotation_z(lean) end
+        go.set_rotation(turn, body.id)
+    end
+    for index = #people + 1, #self.bodies do
+        local body = self.bodies[index]
+        if body.owner then
+            body.owner = nil
+            go.set_position(vmath.vector3(0, -80, 0), body.id)      -- nobody home: out of sight
+        end
+    end
+    for index, boat in ipairs(self.boats) do
+        local x, y, z, angle = life_m.boat_pose(self.life, index)
+        go.set_position(vmath.vector3(x, y, z), boat.id)
+        go.set_rotation(vmath.quat_rotation_y(angle), boat.id)
+    end
+    -- One set of sails for every windmill on the island; spare ones wait out of sight.
+    local mills = self.features.windmills
+    for index, mill in ipairs(mills) do
+        local sails = self.sails[index]
+        if not sails then
+            sails = gfx.new("#solid_factory")
+            gfx.upload(sails, life_m.blades_geometry())
+            self.sails[index] = sails
+        end
+        local x, y, z, facing, turned = life_m.blades_pose(self.life, mill, self.sky.wind)
+        go.set_position(vmath.vector3(x, y, z), sails.id)
+        go.set_rotation(vmath.quat_rotation_y(facing) * vmath.quat_rotation_z(turned), sails.id)
+        sails.shown = true
+    end
+    for index = #mills + 1, #self.sails do
+        local sails = self.sails[index]
+        if sails.shown then
+            sails.shown = false
+            go.set_position(vmath.vector3(0, -80, 0), sails.id)
+        end
+    end
+end
+
+--- The changed chunk nearest to (x, z) in `flags`, or nil.
+local function nearest_dirty(flags, x, z)
+    local best, best_d
+    for index = 1, world.CHUNKS * world.CHUNKS do
+        if flags[index] then
+            local cx = ((index - 1) % world.CHUNKS + 0.5) * world.CHUNK - world.HALF
+            local cz = (floor((index - 1) / world.CHUNKS) + 0.5) * world.CHUNK - world.HALF
+            local d = (cx - x) ^ 2 + (cz - z) ^ 2
+            if not best or d < best_d then best, best_d = index, d end
+        end
+    end
+    return best
+end
+
+--- Rebuilds what changed, nearest to the finger first. The ground follows
+-- the finger every frame; what stands on it catches up a little later,
+-- because houses and trees take longer to build than ground.
+local function rebuild_chunks(self)
+    local w = self.w
+    local near_x, near_z = self.cam.tx, self.cam.tz
+    local stroking = self.stroke and self.stroke.x
+    if stroking then near_x, near_z = self.stroke.x, self.stroke.z end
+    for _ = 1, stroking and 2 or 3 do
+        local index = nearest_dirty(w.dirty, near_x, near_z)
+        if not index then break end
+        w.dirty[index] = false
+        self.props_dirty[index] = true
+        local chunk_x, chunk_z = (index - 1) % world.CHUNKS, floor((index - 1) / world.CHUNKS)
+        gfx.upload(self.chunks[index].ground, build.ground_chunk(w, chunk_x, chunk_z, app.season))
+        gfx.upload(self.chunks[index].water, build.water_chunk(w, chunk_x, chunk_z))
+    end
+    self.props_wait = (self.props_wait or 0) + 1
+    if not stroking or self.props_wait >= 4 then
+        self.props_wait = 0
+        do      -- one chunk of props a frame: a chunk full of houses takes a while to build
+            local index = nearest_dirty(self.props_dirty, near_x, near_z)
+            if index then
+                self.props_dirty[index] = false
+                local chunk_x, chunk_z = (index - 1) % world.CHUNKS, floor((index - 1) / world.CHUNKS)
+                gfx.upload(self.chunks[index].props, build.props_chunk(w, chunk_x, chunk_z, app.season))
+            end
+        end
+    end
+end
+
+function update(self, dt)
+    app.now = app.now + dt
+
+    if self.film then
+        app.pointer, app.commands = {}, {}
+        film_update(self, dt)
+    end
+    local pointer = app.pointer
+    if #pointer > 0 then
+        app.pointer = {}
+        for _, event in ipairs(pointer) do
+            if event.kind == "down" then
+                begin_stroke(self, event.x, event.y)
+            elseif event.kind == "move" then
+                move_stroke(self, event.x, event.y)
+            elseif event.kind == "up" then
+                end_stroke(self, event.x, event.y)
+            elseif event.kind == "gesture" then
+                -- Two fingers: twisting turns, pinching zooms, dragging up and down tilts.
+                if self.stroke then
+                    local stroke = self.stroke
+                    self.stroke = nil
+                    if stroke.tool.type ~= "hand" then finish_stroke(self, stroke) end
+                end
+                self.spin, self.glide = nil, nil
+                self.goal.yaw = self.goal.yaw - event.twist
+                self.goal.dist = self.goal.dist / max(0.5, min(2, event.pinch))
+                -- The middle of the two fingers drags the island along.
+                if event.from_x then
+                    local ax, az = pick_plane(self, event.from_x, event.from_y)
+                    local bx, bz = pick_plane(self, event.x, event.y)
+                    if ax and bx then
+                        self.goal.tx, self.goal.tz = self.goal.tx - (bx - ax), self.goal.tz - (bz - az)
+                    end
+                end
+            end
+        end
+    end
+    local commands = app.commands
+    if #commands > 0 then
+        app.commands = {}
+        for _, command in ipairs(commands) do handle(self, command) end
+    end
+
+    -- A held finger keeps shaping the ground.
+    local stroke = self.stroke
+    if stroke and stroke.x and (stroke.tool.type == "sculpt" or stroke.tool.type == "dig") then
+        apply_tool(self, stroke.x, stroke.z, min(dt, 0.05), false)
+    end
+
+    ease_camera(self, dt)
+    update_camera(self)
+    local fog = FOG[app.weather] or FOG.sunny
+    local constants = env.constants
+    constants.eye = vmath.vector4(self.eye.x, self.eye.y, self.eye.z, 1)
+    constants.fog = vmath.vector4(self.cam.dist + fog[1], 1 / fog[2], app.now, self.sky.wind)
+    constants.cam_pos = constants.eye
+    constants.fog_params = vmath.vector4(self.cam.dist + fog[1], 1 / fog[2], 0, 0)
+
+    local t0 = os.clock()
+    rebuild_chunks(self)
+    local t1 = os.clock()
+
+    life_m.update(self.life, self.w, self.features, dt)
+    local t2 = os.clock()
+    place_movers(self)
+    gfx.upload_dynamic(self.actors, life_m.draw_actors(self.life, self.features, self.sky.wind))
+    local t3 = os.clock()
+    local brush
+    if stroke and stroke.x and (stroke.tool.type == "sculpt" or stroke.tool.type == "dig" or stroke.tool.type == "paint") then
+        brush = { x = stroke.x, z = stroke.z, radius = radius_of(stroke.tool) }
+    end
+    gfx.upload_dynamic(self.fx, life_m.draw_fx(self.life, self.w, self.features, self.sky, self.basis, brush))
+    if self.profile then
+        local p = self.profile
+        local t4 = os.clock()
+        p.chunks, p.life, p.actors, p.fx, p.frames = p.chunks + t1 - t0, p.life + t2 - t1, p.actors + t3 - t2, p.fx + t4 - t3, p.frames + 1
+        if p.frames == 120 then
+            minigame.log(("[island] per frame: chunks %.1f ms, life %.1f ms, actors %.1f ms (%d vertices), effects %.1f ms (%d vertices)"):format(
+                p.chunks / 0.12, p.life / 0.12, p.actors / 0.12, self.actors.vertices, p.fx / 0.12, self.fx.vertices))
+            self.profile = { chunks = 0, life = 0, actors = 0, fx = 0, frames = 0 }
+        end
+    end
+
+    -- The speech bubble follows its islander.
+    if self.bubble then
+        if self.bubble.until_time < app.now then
+            self.bubble, app.bubble = nil, nil
+        else
+            local person = self.bubble.person
+            local sx, sy = project(self, person.x, person.y + 0.6, person.z)
+            app.bubble = sx and { text = self.bubble.text, x = sx, y = sy } or nil
+        end
+    end
+    if app.banner and app.banner.until_time < app.now then
+        app.banner = nil
+        app.changed()
+    end
+    if app.toast and app.toast.until_time < app.now then
+        app.toast = nil
+        app.changed()
+    end
+
+    if self.save_in then
+        self.save_in = self.save_in - dt
+        if self.save_in <= 0 then
+            if self.scene then self.save_in = nil else save_now(self) end
+        end
+    end
+end
+
+function final(self)
+    if not self.scene then save_now(self) end
+end

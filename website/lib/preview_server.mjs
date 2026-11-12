@@ -16,6 +16,7 @@ const TYPES = {
   ".css": "text/css; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
+  ".mp4": "video/mp4",
 };
 
 /** Away from the defaults of common tools (Vite 5173 and 4173, 3000, 8000, 8080). */

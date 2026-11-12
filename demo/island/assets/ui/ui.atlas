@@ -1,0 +1,12 @@
+images {
+  image: "/assets/ui/round.png"
+}
+images {
+  image: "/assets/ui/circle.png"
+}
+images {
+  image: "/assets/ui/square.png"
+}
+margin: 2
+extrude_borders: 2
+inner_padding: 0
