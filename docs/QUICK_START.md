@@ -26,7 +26,7 @@ You get a folder named after the project with `index.html`, `dmloader.js`, `<nam
 ## 2. Export the mini-game project
 
 ```bash
-git clone --branch v0.1.0 --depth 1 https://github.com/AnranS/defold_for_minigame.git
+git clone --branch v0.1.1 --depth 1 https://github.com/AnranS/defold_for_minigame.git
 cd defold_for_minigame
 
 node bin/defold-minigame.mjs export \
@@ -36,7 +36,7 @@ node bin/defold-minigame.mjs export \
   --output   ~/minigame/mygame-wechat
 ```
 
-- `--branch v0.1.0` takes the released version. [Releases](https://github.com/AnranS/defold_for_minigame/releases) lists them all.
+- `--branch v0.1.1` takes the released version. [Releases](https://github.com/AnranS/defold_for_minigame/releases) lists them all.
 - `--platform` is `wechat`, `douyin`, or `tiktok`. One export targets one platform; export three times into three folders for all of them.
 - `--output` must be empty, or a folder this tool exported into before. It cannot be inside the HTML5 bundle.
 - Files the game reaches by path, such as audio and images, can ship as a subpackage with `--subpackage name=dir`, outside the 4 MB of the main package; see the [usage guide](USAGE.md#12-package-size-and-subpackages).
@@ -61,10 +61,10 @@ Skip this if you only want the game to run. Login, sharing, ads, and the other p
 1. Add this repository's archive URL to **Dependencies** in `game.project`, then choose **Project > Fetch Libraries**:
 
    ```text
-   https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.0.zip
+   https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.1.zip
    ```
 
-   Use the same version as the exporter in step 2: the Lua module and the runtime the exporter writes into the package speak one bridge protocol. For the unreleased development version, replace `refs/tags/v0.1.0` with `refs/heads/main` in the address and use the exporter from the `main` branch as well.
+   Use the same version as the exporter in step 2: the Lua module and the runtime the exporter writes into the package speak one bridge protocol. For the unreleased development version, replace `refs/tags/v0.1.1` with `refs/heads/main` in the address and use the exporter from the `main` branch as well.
 
 2. Add `/minigame/minigame.go` to your bootstrap collection. It delivers asynchronous results and host events every frame. A GUI script that uses `gui.*` in its callbacks also calls `minigame.update()` in its own `update()`.
 3. Use it in a script:

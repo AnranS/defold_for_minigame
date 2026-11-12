@@ -6,8 +6,6 @@ It is in the Agent Skills format: a folder with a `SKILL.md` and a few reference
 
 ## Install
 
-The skill is on the `main` branch. It was added after v0.1.0 was released and is not in the v0.1.0 archive.
-
 ### Claude Code
 
 ```text
@@ -36,12 +34,12 @@ Put the folder `skills/defold-minigame` into the tool's skill folder, as a copy 
 `~/.agents/skills/` is read by dsh and by Codex:
 
 ```bash
-git clone --branch main --depth 1 https://github.com/AnranS/defold_for_minigame.git
+git clone --branch v0.1.1 --depth 1 https://github.com/AnranS/defold_for_minigame.git
 mkdir -p ~/.agents/skills
 ln -s "$PWD/defold_for_minigame/skills/defold-minigame" ~/.agents/skills/defold-minigame
 ```
 
-- With a link into a clone, the exporter is right beside the skill and the agent has nothing to download; a `git pull` in the clone updates the skill too.
+- With a link into a clone, the exporter is right beside the skill and the agent has nothing to download. The clone is a released version; for a newer one, clone that version's tag again.
 - A copy of the skill folder alone works as well. An agent that finds no exporter runs the released version through `npx`, or asks where the repository is.
 - dsh looks one level deep: `defold-minigame` sits directly in the skill folder, not inside another folder.
 
@@ -110,5 +108,5 @@ The tests check that they are current, that the command-line options and SDK fun
 ## Updating and removing
 
 - Claude Code: `claude plugin update defold-minigame@defold-for-minigame`, and `claude plugin uninstall defold-minigame@defold-for-minigame` to remove it.
-- Installed as a link: `git pull` in the clone; delete the link to remove it.
+- Installed as a link: clone the new version's tag and point the link at it; delete the link to remove it.
 - Installed as a copy: copy it again; delete the folder to remove it.

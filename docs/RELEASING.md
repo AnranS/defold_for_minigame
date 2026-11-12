@@ -25,9 +25,8 @@ The agent skill names the tag in the same addresses, and its reference files
 are copies of the documents: run `node scripts/generate_skill_references.mjs`
 after the documents change. Claude Code gives the plugin's users an update
 only when the version in `plugin.json` changes, so a release is what delivers
-a changed skill to them. The agent guides (`docs/AI_AGENTS*.md`) clone `main`
-and say that the skill is not in the v0.1.0 archive; from the first release
-that contains the skill, make them clone the tag and drop that sentence.
+a changed skill to them. The agent guides (`docs/AI_AGENTS*.md`) clone the
+tag as well.
 
 Bump `bridgeAbi` in `support-matrix.json`, `BRIDGE_ABI_VERSION` in
 `runtime/common/js/platform_runtime.js`, and `M.ABI` in `minigame/minigame.lua`

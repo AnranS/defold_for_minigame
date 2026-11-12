@@ -3,7 +3,7 @@
 本文覆盖导出工具的全部选项、三个平台的差异，以及存档、音频、输入、画面、网络、包体这些运行时行为。第一次使用请先看[快速开始](QUICK_START_zh.md)。
 
 > [!WARNING]
-> v0.1.0 是实验版。启动、渲染、触摸、存档、分包和 Lua SDK 已经用真实引擎在三个平台上跑过：微信、抖音开发者工具的模拟器，以及微信、抖音、TikTok 的 iPhone 和 Android 真机；声音在微信和抖音上跑过。跑的是仓库自带的测试应用，文中其余的运行时行为来自代码和模拟宿主测试。[兼容性清单](#14-兼容性清单)里标了“未验证”的功能要自己测。
+> v0.1.1 是实验版。启动、渲染、触摸、存档、分包和 Lua SDK 已经用真实引擎在三个平台上跑过：微信、抖音开发者工具的模拟器，以及微信、抖音、TikTok 的 iPhone 和 Android 真机；声音在微信和抖音上跑过。跑的是仓库自带的测试应用，文中其余的运行时行为来自代码和模拟宿主测试。[兼容性清单](#14-兼容性清单)里标了“未验证”的功能要自己测。
 
 ## 1. 环境准备
 
@@ -143,7 +143,7 @@ TikTok 上有两件事和另外两个平台不同，都来自 [godot_for_minigam
 1. 把本仓库加为库依赖，执行 **Project > Fetch Libraries**。`game.project` 的 Dependencies 里填发布版本的地址，版本要和导出工具一致：
 
    ```text
-   https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.0.zip
+   https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.1.zip
    ```
 
 2. 把 `/minigame/minigame.go` 放进启动 collection。它在 `init` 里查找桥，在 `update` 里派发异步结果。不想加这个对象，就在自己的脚本里每帧调用一次 `minigame.update()`。回调里要用 `gui.*` 的 GUI 脚本，还需要在自己的 `update()` 里调用 `minigame.update()`，原因见下一小节。

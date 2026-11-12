@@ -3,7 +3,7 @@
 This guide covers every exporter option, the differences between the three platforms, and the runtime behaviour of saves, audio, input, display, network, and package size. If this is your first export, start with the [quick start](QUICK_START.md).
 
 > [!WARNING]
-> v0.1.0 is experimental. Start-up, rendering, touch, saves, subpackages, and the Lua SDK have run with the real engine on all three platforms: in the WeChat DevTools and Douyin DevTools simulators, and on an iPhone and an Android phone in WeChat, Douyin, and TikTok. Sound has run on WeChat and Douyin. What ran is the test app in this repository; everything else described here comes from the code and from simulated-host tests. Test the entries marked "untested" yourself in particular.
+> v0.1.1 is experimental. Start-up, rendering, touch, saves, subpackages, and the Lua SDK have run with the real engine on all three platforms: in the WeChat DevTools and Douyin DevTools simulators, and on an iPhone and an Android phone in WeChat, Douyin, and TikTok. Sound has run on WeChat and Douyin. What ran is the test app in this repository; everything else described here comes from the code and from simulated-host tests. Test the entries marked "untested" yourself in particular.
 
 ## 1. Requirements
 
@@ -143,7 +143,7 @@ A third comes from this project's own run on an iPhone and an Android phone: Tik
 1. Add this repository as a library dependency and run **Project > Fetch Libraries**. Dependencies in `game.project` takes the address of a released version, the same version as the exporter:
 
    ```text
-   https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.0.zip
+   https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.1.zip
    ```
 
 2. Put `/minigame/minigame.go` into the bootstrap collection. It finds the bridge in `init` and delivers asynchronous results in `update`. If you would rather not add it, call `minigame.update()` once per frame from one of your scripts. A GUI script that uses `gui.*` in its callbacks calls `minigame.update()` in its own `update()` as well; the next section says why.

@@ -35,7 +35,7 @@ node bin/defold-minigame.mjs build --project demo/island --bob path/to/bob.jar \
 目前只在微信开发者工具里运行过。演示游戏和视频不在 tag 的源码压缩包里（库依赖下载的就是那个包），要看它请 clone 仓库。
 
 > [!WARNING]
-> **当前是 v0.1.0 实验版。**
+> **当前是 v0.1.1 实验版。**
 > 已经验证的是：200 多项自动化测试，对 Defold 1.14.0 和 1.14.1 官方引擎的静态核对，以及真实引擎在三个平台上的运行：微信、抖音开发者工具的模拟器，和微信、抖音、TikTok 的 iPhone、Android 真机。覆盖启动、渲染、触摸、存档、分包和 Lua SDK；声音在微信和抖音上验证过。
 > 跑过的是仓库自带的测试应用。你自己的游戏上线前，仍然要在开发者工具和真机上测一遍。详见[验证状态](#验证状态)。
 
@@ -74,7 +74,7 @@ Defold 的 HTML5 包是给浏览器用的：`dmloader.js` 操作 DOM、用 XHR �
 2. **导出**：
 
    ```bash
-   git clone --branch v0.1.0 --depth 1 https://github.com/AnranS/defold_for_minigame.git
+   git clone --branch v0.1.1 --depth 1 https://github.com/AnranS/defold_for_minigame.git
    node defold_for_minigame/bin/defold-minigame.mjs export \
      --bundle  path/to/bundle/MyGame \
      --platform wechat \
@@ -87,7 +87,7 @@ Defold 的 HTML5 包是给浏览器用的：`dmloader.js` 操作 DOM、用 XHR �
 要调用平台能力，把本仓库加为 Defold 库依赖，再把 `/minigame/minigame.go` 放进启动 collection。库依赖的地址填在 `game.project` 的 Dependencies 里，和导出工具用同一个版本：
 
 ```text
-https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.0.zip
+https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.1.zip
 ```
 
 然后在脚本里：

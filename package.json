@@ -1,6 +1,6 @@
 {
   "name": "defold-minigame",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Export Defold HTML5 bundles as WeChat, Douyin, and TikTok mini games.",
   "license": "MIT",
   "repository": {

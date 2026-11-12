@@ -3,14 +3,14 @@ name: defold-minigame
 description: Export a Defold game as a WeChat, Douyin, or TikTok mini game with the defold-minigame exporter, and use its minigame Lua SDK for login, storage, sharing, ads, payment, host audio, and subpackages. Use when the user wants a Defold project to run as a mini game (微信小游戏, 抖音小游戏, TikTok Mini Game), mentions defold-minigame or defold_for_minigame, hits an export error or a start-up failure in WeChat DevTools, Douyin DevTools, or ttmg, or writes Lua that calls minigame functions.
 license: MIT
 metadata:
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 # Defold Mini Game
 
 The `defold-minigame` exporter turns the HTML5 bundle Defold builds into a project folder that WeChat DevTools, Douyin DevTools, or TikTok's `ttmg` opens. It uses the stock Defold engine, so nothing is compiled. The game reaches the host's features, such as login, ads, and sharing, through a Lua module named `minigame`.
 
-This skill describes version 0.1.0, which is experimental. The repository's test app has run on phones on all three platforms; the user's game has not.
+This skill describes version 0.1.1, which is experimental. The repository's test app has run on phones on all three platforms; the user's game has not.
 
 ## Rules
 
@@ -34,13 +34,13 @@ The exporter is `bin/defold-minigame.mjs` in the tool's repository. It needs Nod
 3. **Neither.** Run the released version from GitHub; npm downloads it once and keeps it:
 
    ```bash
-   npx --yes github:AnranS/defold_for_minigame#v0.1.0 --version
+   npx --yes github:AnranS/defold_for_minigame#v0.1.1 --version
    ```
 
    To have the files on disk instead, clone the release:
 
    ```bash
-   git clone --branch v0.1.0 --depth 1 https://github.com/AnranS/defold_for_minigame.git
+   git clone --branch v0.1.1 --depth 1 https://github.com/AnranS/defold_for_minigame.git
    ```
 
 `<exporter> --version` prints the version and `<exporter> --help` every option. The exporter and the Lua module in the game must be the same version, because the two speak one bridge protocol.
@@ -90,7 +90,7 @@ Needed only when the game calls the host: login, sharing, ads, payment, storage,
 1. Add the library to the `[project]` section of `game.project`, the same version as the exporter. The number after `#` counts the project's dependencies from 0:
 
    ```text
-   dependencies#0 = https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.0.zip
+   dependencies#0 = https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.1.zip
    ```
 
    The user then runs **Project > Fetch Libraries** in the editor; the `build` command fetches it as part of the build.

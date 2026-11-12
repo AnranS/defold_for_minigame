@@ -35,7 +35,7 @@ node bin/defold-minigame.mjs build --project demo/island --bob path/to/bob.jar \
 So far it has only run in WeChat DevTools. The demo game and the video are left out of a tag's source archive, which is what a library dependency downloads; clone the repository to get them.
 
 > [!WARNING]
-> **This is v0.1.0, an experimental release.**
+> **This is v0.1.1, an experimental release.**
 > Verified: more than 200 automated tests, a static check against the stock Defold 1.14.0 and 1.14.1 engines, and the real engine running on all three platforms: in the WeChat DevTools and Douyin DevTools simulators, and on an iPhone and an Android phone in WeChat, Douyin, and TikTok. The runs cover start-up, rendering, touch, saves, subpackages, and the Lua SDK; sound is verified on WeChat and Douyin.
 > What ran is the test app in this repository. Test your own game in the developer tool and on a device before you ship. See [Validation status](#validation-status).
 
@@ -74,7 +74,7 @@ You need Node.js 20 or later and a Defold HTML5 bundle.
 2. **Export**:
 
    ```bash
-   git clone --branch v0.1.0 --depth 1 https://github.com/AnranS/defold_for_minigame.git
+   git clone --branch v0.1.1 --depth 1 https://github.com/AnranS/defold_for_minigame.git
    node defold_for_minigame/bin/defold-minigame.mjs export \
      --bundle  path/to/bundle/MyGame \
      --platform wechat \
@@ -87,7 +87,7 @@ You need Node.js 20 or later and a Defold HTML5 bundle.
 To call platform features, add this repository as a Defold library dependency and put `/minigame/minigame.go` into your bootstrap collection. The library address goes into Dependencies in `game.project`, at the same version as the exporter:
 
 ```text
-https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.0.zip
+https://github.com/AnranS/defold_for_minigame/archive/refs/tags/v0.1.1.zip
 ```
 
 Then, in a script:

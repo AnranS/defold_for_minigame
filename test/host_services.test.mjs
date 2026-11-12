@@ -115,7 +115,7 @@ test("html5.run reaches the bridge through the engine's own evaluation call", as
   assert.equal(info.platform, "wechat");
   assert.equal(info.persistence, "fs");
   assert.equal(info.engineAudio, true);
-  assert.equal(info.toolVersion, "0.1.0");
+  assert.equal(info.toolVersion, "0.1.1");
 
   assert.deepEqual(host.lua({ op: "sync", api: "setStorageSync", args: ["k", "v"] }), { ok: true });
   assert.equal(host.storage.get("k"), "v");

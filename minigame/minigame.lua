@@ -19,7 +19,7 @@ local M = {}
 
 --- Bridge ABI this module speaks. The exported runtime must match exactly.
 M.ABI = 1
-M.VERSION = "0.1.0"
+M.VERSION = "0.1.1"
 
 local HANDSHAKE = "typeof DefoldMiniGameBridge==='object'?DefoldMiniGameBridge.handshake():''"
 local BRAND = "defold-mini-game-bridge"

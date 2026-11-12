@@ -6,8 +6,6 @@
 
 ## 安装
 
-skill 在 `main` 分支上，是 v0.1.0 发布之后加的，v0.1.0 的压缩包里没有。
-
 ### Claude Code
 
 ```text
@@ -36,12 +34,12 @@ Claude Code 2.1.275 之前的版本分两步：
 `~/.agents/skills/` 这一处，dsh 和 Codex 都读：
 
 ```bash
-git clone --branch main --depth 1 https://github.com/AnranS/defold_for_minigame.git
+git clone --branch v0.1.1 --depth 1 https://github.com/AnranS/defold_for_minigame.git
 mkdir -p ~/.agents/skills
 ln -s "$PWD/defold_for_minigame/skills/defold-minigame" ~/.agents/skills/defold-minigame
 ```
 
-- 软链接到 clone 下来的仓库，导出器就在 skill 旁边，助手不用再去下载；仓库 `git pull` 之后 skill 也跟着更新。
+- 软链接到 clone 下来的仓库，导出器就在 skill 旁边，助手不用再去下载。clone 下来的是一个已发布的版本，要换新版本就重新 clone 那个版本的 tag。
 - 只复制 skill 目录也能用。助手找不到导出器时，会用 `npx` 直接运行已发布的版本，或者问你仓库在哪。
 - dsh 只认一层目录：`defold-minigame` 要直接放在 skill 目录下面，不能再套一层。
 
@@ -110,5 +108,5 @@ node scripts/generate_skill_references.mjs
 ## 更新和卸载
 
 - Claude Code：`claude plugin update defold-minigame@defold-for-minigame`，卸载用 `claude plugin uninstall defold-minigame@defold-for-minigame`。
-- 软链接安装的：在 clone 下来的仓库里 `git pull`；卸载就是删掉那个链接。
+- 软链接安装的：clone 新版本的 tag，把链接指过去；卸载就是删掉那个链接。
 - 复制安装的：重新复制一遍；卸载就是删掉那个目录。
