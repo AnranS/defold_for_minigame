@@ -4,6 +4,7 @@
  *
  *   node scripts/devtools_probe.mjs inject  --project <export> [--label <name>]
  *        [--capture <ms> ...] [--touch <type>:<x>,<y>@<ms> ...] [--finish <ms>]
+ *        [--capture-frames <first>-<last>]
  *        [--storage <key>=<value> ...] [--audible] [--capture-size <pixels>]
  *   node scripts/devtools_probe.mjs collect --storage <simulator user data> --out <folder> [--label <name>]
  *   node scripts/devtools_probe.mjs remove  --project <export>
@@ -12,7 +13,10 @@
  * project and makes game.js load it first. The probe mirrors the console to a file,
  * saves what the canvas shows at the --capture times, and replays the --touch
  * steps (type is start, move, or end; x and y are fractions of the window).
- * Times are milliseconds after the engine is reported running. A probed run
+ * Times are milliseconds after the engine is reported running.
+ * --capture-frames saves every frame of a range instead, counted from the
+ * first frame after the engine started, and ends the run after the last one:
+ * that is how a recording is made that drops no frame. A probed run
  * is silent unless --audible is given. --storage puts a value into the host's
  * key-value storage before the game starts and takes it out when the run
  * finishes; the API test app runs all its tests when it finds
@@ -72,7 +76,7 @@ export function parseStorage(text) {
   return [text.slice(0, split), text.slice(split + 1)];
 }
 
-export function inject({ project, label = "run", captures = [1500, 4000], touches = [], finishAt, mute = true, storage = {}, captureSize = 720 }) {
+export function inject({ project, label = "run", captures, captureFrames = null, touches = [], finishAt, mute = true, storage = {}, captureSize = 720 }) {
   const directory = resolve(project);
   const entry = join(directory, "game.js");
   if (!existsSync(entry) || !existsSync(join(directory, ".defold-mini-game-export.json"))) {
@@ -83,9 +87,18 @@ export function inject({ project, label = "run", captures = [1500, 4000], touche
   if (manifest.platform && !["wechat", "douyin"].includes(manifest.platform)) {
     throw new Error(`the probe is written for WeChat and Douyin DevTools; this project was exported for ${manifest.platform}`);
   }
+  if (captureFrames !== null) {
+    const valid = Array.isArray(captureFrames) && captureFrames.length === 2 && captureFrames.every(Number.isInteger)
+      && captureFrames[0] >= 1 && captureFrames[1] >= captureFrames[0];
+    if (!valid) throw new Error("--capture-frames is a range of frames, written as <first>-<last>, counted from 1");
+  }
+  // Without a range of frames, two pictures by the clock are the default.
+  if (captures === undefined) captures = captureFrames === null ? [1500, 4000] : [];
   const last = Math.max(0, ...captures, ...touches.map((step) => step.at));
   if (!Number.isInteger(captureSize) || captureSize < 16) throw new Error("--capture-size is the longer side of a saved frame, in pixels");
-  const config = { label, captures, touches, finishAt: finishAt ?? last + 1500, mute, storage, captureSize };
+  // A range of frames ends the run itself, after its last frame.
+  const ends = captureFrames === null ? finishAt ?? last + 1500 : null;
+  const config = { label, captures, captureFrames, touches, finishAt: ends, mute, storage, captureSize };
   const probe = readFileSync(join(HERE, "devtools", "probe.js"), "utf8");
   const placeholder = /\/\*CONFIG\*\/\{[^\n]*\};/;
   if (!placeholder.test(probe)) throw new Error("scripts/devtools/probe.js has no CONFIG placeholder");
@@ -217,10 +230,12 @@ function main(argv) {
     if (!project) return fail("inject needs --project <export>");
     const captures = values(rest, "--capture").map(Number);
     const finish = single(rest, "--finish");
+    const range = single(rest, "--capture-frames");
     const config = inject({
       project,
       label: single(rest, "--label", "run"),
       captures: captures.length > 0 ? captures : undefined,
+      captureFrames: range === null ? null : range.split("-").map(Number),
       touches: values(rest, "--touch").map(parseTouch),
       finishAt: finish === null ? undefined : Number(finish),
       mute: !rest.includes("--audible"),

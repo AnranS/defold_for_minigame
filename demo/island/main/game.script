@@ -668,13 +668,13 @@ local function film_update(self, dt)
         local s = smooth((t - 9.4) / 2.4)
         goal.dist, goal.pitch, goal.tx, goal.tz = 36 - 27 * s, 0.82 - 0.4 * s, -6.2 * s, 1 + 1.4 * s
     else                                             -- and back out for the night
-        local s = smooth((t - 13.2) / 2.6)
-        goal.dist, goal.pitch, goal.tx, goal.tz = 9 + 23 * s, 0.42 + 0.3 * s, -6.2 * (1 - s), 2.4 - 1.4 * s
+        local s = smooth((t - 13.2) / 3.0)
+        goal.dist, goal.pitch, goal.tx, goal.tz = 9 + 27 * s, 0.42 + 0.34 * s, -6.2 * (1 - s), 2.4 - 1.4 * s
     end
 
     local hour = 10
     if t > 10.6 then hour = 10 + 8.4 * smooth((t - 10.6) / 2.8) end
-    if t > 13.4 then hour = 18.4 + 3.4 * smooth((t - 13.4) / 2.0) end
+    if t > 13.4 then hour = 18.4 + 3.4 * smooth((t - 13.4) / 2.2) end
     if hour ~= app.hour then
         app.hour = hour
         update_sky(self)
@@ -873,6 +873,9 @@ local function rebuild_chunks(self)
 end
 
 function update(self, dt)
+    -- The film runs on its own clock: a thirtieth of a second per frame, however
+    -- long the frame took. A recording that saves every frame is then smooth.
+    if self.film then dt = 1 / 30 end
     app.now = app.now + dt
 
     if self.film then

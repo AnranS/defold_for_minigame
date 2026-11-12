@@ -130,6 +130,32 @@ test("the probe goes into WeChat and Douyin projects this tool exported, and now
   assert.throws(() => inject({ project: workspace.outputDir("tiktok") }), /written for WeChat and Douyin DevTools/);
 });
 
+test("--capture-frames saves every frame of a range and ends the run after the last one", async (t) => {
+  // For recordings: one picture per frame the engine draws, however long saving a picture takes.
+  const workspace = makeWorkspace(t);
+  workspace.export("wechat");
+  const project = workspace.outputDir("wechat");
+  const config = inject({ project, label: "film", captureFrames: [3, 8], captureSize: 64 });
+  assert.deepEqual(config.captures, [], "no pictures by the clock unless they are asked for");
+  assert.deepEqual(config.captureFrames, [3, 8]);
+  assert.equal(config.finishAt, null, "the last frame ends the run, not the clock");
+
+  const host = workspace.host("wechat");
+  await host.start();
+  await runUntilFinished(host, workspace.userDataDir, "film");
+  const result = collect({ storage: workspace.userDataDir, out: join(workspace.root, "evidence"), label: "film" });
+  assert.equal(result.summary.finished, true);
+  assert.equal(result.summary.captures.length, 6);
+  assert.deepEqual(result.summary.captures.map((capture) => capture.engineFrame), [3, 4, 5, 6, 7, 8]);
+  for (const capture of result.summary.captures) assert.equal(capture.error, undefined);
+  assert.equal(result.frames.length, 6);
+  for (const frame of result.frames) assert.ok(existsSync(frame.file), frame.file);
+
+  for (const wrong of [[0, 4], [5, 3], [1.5, 4], ["a", "b"], [2]]) {
+    assert.throws(() => inject({ project, captureFrames: wrong }), /--capture-frames is a range of frames/, JSON.stringify(wrong));
+  }
+});
+
 test("a probed Douyin export boots and reports through the tt API", async (t) => {
   const workspace = makeWorkspace(t);
   workspace.export("douyin");

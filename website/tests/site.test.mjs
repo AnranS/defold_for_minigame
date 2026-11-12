@@ -279,7 +279,7 @@ test("the home pages show the demo game: a video that plays without sound, and w
     assert.ok(existsSync(join(outDir, "videos", file)), `${file} is in the built site`);
   }
   const size = readFileSync(join(outDir, "videos", "island.mp4")).length;
-  assert.ok(size > 100 * 1024 && size < 4 * 1024 * 1024, `the video is ${size} bytes`);
+  assert.ok(size > 100 * 1024 && size < 8 * 1024 * 1024, `the video is ${size} bytes`);
 });
 
 test("the two languages have the same structure", () => {

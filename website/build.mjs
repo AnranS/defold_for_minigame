@@ -567,7 +567,7 @@ function renderHome(lang, site) {
   <div class="container">
     ${sectionHead(t.demoKicker, t.demoTitle, fill(t.demoLead, site.values))}
     <div class="demo">
-      <video src="${relativeHref(route, "")}videos/island.mp4" poster="${relativeHref(route, "")}videos/island-poster.png" width="390" height="844" controls muted loop playsinline preload="metadata" aria-label="${escapeHtml(t.demoVideoLabel)}"></video>
+      <video src="${relativeHref(route, "")}videos/island.mp4" poster="${relativeHref(route, "")}videos/island-poster.png" width="780" height="1688" controls muted loop playsinline preload="metadata" aria-label="${escapeHtml(t.demoVideoLabel)}"></video>
       <div class="demo-notes">
         <ul>
           ${t.demoPoints.map((point) => `<li>${text(fill(point, site.values))}</li>`).join("\n          ")}

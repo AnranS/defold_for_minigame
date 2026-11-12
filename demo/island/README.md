@@ -61,8 +61,10 @@ node ../../bin/defold-minigame.mjs build --project . --bob <bob.jar> \
 游戏启动时会读宿主存储里的 `island.demo`，这是给自动检查和录屏用的，平时没有这个键：
 
 - `build`：直接从一座搭好的岛开始，不存档。
-- `film`：没有界面，岛自己一步步长出来，镜头环绕、推近，天色走到夜晚。官网上的视频就是这样录的，
-  画面由 `scripts/devtools_probe.mjs` 从画布逐帧取出，再用 ffmpeg 合成。
+- `film`：没有界面，岛自己一步步长出来，镜头环绕、推近，天色走到夜晚。这个场景按固定步长运行，每一帧
+  游戏时间正好走 1/30 秒，所以每次重放的画面完全一样。官网上的视频就是这样录的：`scripts/devtools_probe.mjs`
+  的 `--capture-frames` 把每一帧按原始大小从画布取出（模拟器一次会话只能写约 200 MB，所以分段录，每段 36 帧），
+  再用 ffmpeg 合成 30 帧每秒的视频。
 
 ## 素材
 

@@ -26,7 +26,7 @@
  * apitest.autorun that way.
  */
 ;(function () {
-  var CONFIG = /*CONFIG*/{ label: "run", captures: [1500, 4000], touches: [], finishAt: 6000, mute: true, storage: {}, captureSize: 720 };
+  var CONFIG = /*CONFIG*/{ label: "run", captures: [1500, 4000], captureFrames: null, touches: [], finishAt: 6000, mute: true, storage: {}, captureSize: 720 };
 
   // WeChat calls its API object wx, Douyin calls it tt; the parts used here are the same.
   var api = typeof wx !== "undefined" ? wx : (typeof tt !== "undefined" ? tt : null);
@@ -193,13 +193,22 @@
   var nativeFrame = G.requestAnimationFrame || (typeof requestAnimationFrame === "function" ? requestAnimationFrame : null);
   var frameTimes = [];
   var lastFrame = 0;
+  // For recordings: every frame of a range, counted from the first frame after the engine started.
+  var frameRange = CONFIG.captureFrames;
+  var engineFrames = 0;
+  var finish = function () {};
   function afterFrame() {
     summary.frames += 1;
     var now = Date.now();
     if (engineAt) {
       if (lastFrame) frameTimes.push(now - lastFrame);
       lastFrame = now;
+      engineFrames += 1;
       while (captures.length > 0 && now - engineAt >= captures[0]) capture(captures.shift());
+      if (frameRange && engineFrames >= frameRange[0] && engineFrames <= frameRange[1]) {
+        capture(now - engineAt);
+        if (engineFrames === frameRange[1]) setTimeout(finish, 200);
+      }
     }
   }
   if (nativeFrame) {
@@ -216,7 +225,7 @@
 
   /** Copies the frame that was just drawn, top row first, at most captureSize pixels on its longer side. */
   function capture(at) {
-    var record = { atMs: at, takenAfterMs: Date.now() - engineAt, frame: summary.frames };
+    var record = { atMs: at, takenAfterMs: Date.now() - engineAt, frame: summary.frames, engineFrame: engineFrames };
     try {
       var adapter = G.__defoldMiniGameAdapter;
       var canvas = adapter && adapter.canvas;
@@ -278,7 +287,13 @@
         write("[probe] touch " + JSON.stringify(record));
       }, step.at);
     });
-    setTimeout(function () {
+    var finished = false;
+    var limit = null;
+    finish = function () {
+      if (finished) return;
+      finished = true;
+      // The limit below can be minutes away: left pending it would keep a test process alive.
+      if (limit !== null) clearTimeout(limit);
       if (frameTimes.length > 0) {
         var sorted = frameTimes.slice().sort(function (a, b) { return a - b; });
         var total = frameTimes.reduce(function (sum, value) { return sum + value; }, 0);
@@ -302,13 +317,17 @@
       write("[probe] finished " + report);
       consoleLog("[DefoldMiniGame][probe] finished " + report);
       saveSummary();
-    }, CONFIG.finishAt || 6000);
+    };
+    // A run ends by the clock, or, when a range of frames is recorded, after its last frame
+    // (with a generous limit, should the engine stop drawing).
+    limit = setTimeout(finish, frameRange ? 900000 : (CONFIG.finishAt || 6000));
   });
 
   // Something to look at when the engine never comes up.
-  setTimeout(function () {
+  var watchdog = setTimeout(function () {
     if (!engineAt) { note("the engine was not running 30 s after start"); saveSummary(); }
   }, 30000);
+  onEngineRunning.push(function () { clearTimeout(watchdog); });
 
   write("[probe] started " + JSON.stringify(CONFIG));
   saveSummary();
