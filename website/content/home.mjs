@@ -16,7 +16,6 @@ export const home = {
     platformsLabel: "目标平台",
     terminalLabel: "导出命令和它的输出",
     terminalCaption: "示例输出。引擎部分的数字来自 Defold {referenceDefold} 官方引擎，归档大小取决于你的游戏。",
-    notice: "<strong>当前是实验版。</strong>真实的 Defold 引擎已经在三个平台上跑通：微信、抖音开发者工具的模拟器，以及微信、抖音、TikTok 的 iPhone 和 Android 真机。跑的是仓库自带的 API 功能测试应用，覆盖启动、渲染、触摸、存档、分包和 Lua SDK，微信和抖音上还包括声音。你自己的游戏上线前，仍然要在开发者工具和真机上测一遍。",
     stats: [
       { value: "0", label: "次引擎编译：直接用 Defold 官方引擎，不需要 Emscripten" },
       { value: "{platforms}", label: "个平台：微信、抖音、TikTok Native" },
@@ -132,7 +131,6 @@ export const home = {
     platformsLabel: "Target platforms",
     terminalLabel: "The export command and its output",
     terminalCaption: "Example output. The engine figures are from the stock Defold {referenceDefold} engine; the archive size depends on your game.",
-    notice: "<strong>This is an experimental release.</strong> The real Defold engine runs on all three platforms: in the WeChat DevTools and Douyin DevTools simulators, and on an iPhone and an Android phone in WeChat, Douyin, and TikTok. What ran is the API test app in the repository; it covers start-up, rendering, touch, saves, subpackages, and the Lua SDK, and sound on WeChat and Douyin. Test your own game in the developer tool and on a device before you ship.",
     stats: [
       { value: "0", label: "engine builds. No Emscripten either" },
       { value: "{platforms}", label: "platforms: WeChat, Douyin, TikTok Native" },

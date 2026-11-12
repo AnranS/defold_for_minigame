@@ -478,7 +478,21 @@ function renderHome(lang, site) {
         <figcaption>${text(t.terminalCaption)}</figcaption>
       </figure>
     </div>
-    <p class="notice">${t.notice}</p>
+  </div>
+</section>
+
+<section class="section" id="demo">
+  <div class="container">
+    ${sectionHead(t.demoKicker, t.demoTitle, fill(t.demoLead, site.values))}
+    <div class="demo">
+      <video src="${relativeHref(route, "")}videos/island.mp4" poster="${relativeHref(route, "")}videos/island-poster.png" width="780" height="1688" controls muted loop playsinline preload="metadata" aria-label="${escapeHtml(t.demoVideoLabel)}"></video>
+      <div class="demo-notes">
+        <ul>
+          ${t.demoPoints.map((point) => `<li>${text(fill(point, site.values))}</li>`).join("\n          ")}
+        </ul>
+        <p class="more"><a href="${escapeHtml(site.repository)}/tree/main/demo/island" rel="noopener">${text(t.demoLink)} →</a></p>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -560,21 +574,6 @@ function renderHome(lang, site) {
     <h3 class="figure-title">${text(t.runsTitle)}</h3>
     ${table(t.runHeaders, runRows, "wide")}
     <p class="section-lead runs-note">${text(t.runsNote)}</p>
-  </div>
-</section>
-
-<section class="section" id="demo">
-  <div class="container">
-    ${sectionHead(t.demoKicker, t.demoTitle, fill(t.demoLead, site.values))}
-    <div class="demo">
-      <video src="${relativeHref(route, "")}videos/island.mp4" poster="${relativeHref(route, "")}videos/island-poster.png" width="780" height="1688" controls muted loop playsinline preload="metadata" aria-label="${escapeHtml(t.demoVideoLabel)}"></video>
-      <div class="demo-notes">
-        <ul>
-          ${t.demoPoints.map((point) => `<li>${text(fill(point, site.values))}</li>`).join("\n          ")}
-        </ul>
-        <p class="more"><a href="${escapeHtml(site.repository)}/tree/main/demo/island" rel="noopener">${text(t.demoLink)} →</a></p>
-      </div>
-    </div>
   </div>
 </section>
 
