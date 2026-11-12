@@ -59,7 +59,7 @@ It asks which tools to install for, and whether into this project or for your us
 
 | Way | What was done |
 |---|---|
-| Claude Code plugin | Installed from a local clone with Claude Code 2.1.322: the install succeeds and the one skill is found |
+| Claude Code plugin | Installed from GitHub with the line above, on Claude Code 2.1.322: the install succeeds, the one skill is found, and the exporter that comes with the plugin runs |
 | dsh | Run through the skill loader that ships with dsh 0.1.1-rc.2: the skill is found and read from `<project>/.agents/skills/` (a link) and from the user's `skills/` (a copy), without a warning. No full session was run |
 | Codex | The folders are the ones its documentation names; not tried |
 | `npx skills add` | The layout follows the discovery rules in its documentation; not tried |

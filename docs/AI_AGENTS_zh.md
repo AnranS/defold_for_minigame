@@ -59,7 +59,7 @@ npx skills add AnranS/defold_for_minigame
 
 | 途径 | 情况 |
 |---|---|
-| Claude Code 插件 | 用 Claude Code 2.1.322 从本地仓库装过：安装成功，识别出这一个 skill |
+| Claude Code 插件 | 用 Claude Code 2.1.322 按上面那一行从 GitHub 装过：安装成功，识别出这一个 skill，随插件装下来的导出器可以运行 |
 | dsh | 用 dsh 0.1.1-rc.2 自带的 skill 加载代码跑过：在 `<工程>/.agents/skills/`（软链接）和用户目录的 `skills/`（复制）里都能发现并读出，没有警告。没有跑过完整的会话 |
 | Codex | 目录按它的文档写，没有实测 |
 | `npx skills add` | 目录结构符合它文档里的发现规则，没有实测 |
