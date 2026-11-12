@@ -6,7 +6,7 @@
 
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { inflateSync } from "node:zlib";
@@ -33,6 +33,25 @@ function decodePng(png) {
   return { width, height, rows };
 }
 
+/**
+ * Runs frames until the probe has finished its run. The probe keeps time by
+ * the wall clock, and a busy machine takes longer to boot the engine: a fixed
+ * number of frames would sometimes be over before the run is.
+ */
+async function runUntilFinished(host, userDataDir, label, limitMs = 15000) {
+  const evidence = join(userDataDir, "dmg-probe");
+  const finished = () => existsSync(evidence) && readdirSync(evidence).some((name) => {
+    const summary = join(evidence, name, "summary.json");
+    return name.startsWith(`${label}-`) && existsSync(summary) && /"finished":\s*true/.test(readFileSync(summary, "utf8"));
+  });
+  const deadline = Date.now() + limitMs;
+  while (!finished()) {
+    assert.ok(Date.now() < deadline, `the probe run "${label}" did not finish within ${limitMs} ms`);
+    host.frame(1);
+    await host.settle(1);
+  }
+}
+
 test("a probed export boots, and leaves a console log, frames, touches, and a summary", async (t) => {
   const workspace = makeWorkspace(t);
   workspace.export("wechat");
@@ -42,12 +61,13 @@ test("a probed export boots, and leaves a console log, frames, touches, and a su
     touches: [parseTouch("start:0.5,0.25@5"), parseTouch("end:0.5,0.25@15")],
   });
   assert.equal(config.finishAt, 1530, "the run finishes a moment after its last step");
-  inject({ project, label: "sim", captures: [0, 30], touches: config.touches, finishAt: 60 });
+  // Long enough for a slow machine to draw some frames after the engine has started.
+  inject({ project, label: "sim", captures: [0, 30], touches: config.touches, finishAt: 400 });
   assert.equal(readFileSync(join(project, "game.js"), "utf8").split('import "./dmg-probe";').length, 2, "injecting twice loads the probe once");
 
   const host = workspace.host("wechat");
   await host.start();
-  for (let round = 0; round < 60; round += 1) { host.frame(1); await host.settle(1); }
+  await runUntilFinished(host, workspace.userDataDir, "sim");
 
   const result = collect({ storage: workspace.userDataDir, out: join(workspace.root, "evidence"), label: "sim" });
   // The loader's own lines, and the engine's, are in the mirrored console.
@@ -113,10 +133,10 @@ test("the probe goes into WeChat and Douyin projects this tool exported, and now
 test("a probed Douyin export boots and reports through the tt API", async (t) => {
   const workspace = makeWorkspace(t);
   workspace.export("douyin");
-  inject({ project: workspace.outputDir("douyin"), label: "dy", captures: [0], finishAt: 30 });
+  inject({ project: workspace.outputDir("douyin"), label: "dy", captures: [0], finishAt: 200 });
   const host = workspace.host("douyin");
   await host.start();
-  for (let round = 0; round < 40; round += 1) { host.frame(1); await host.settle(1); }
+  await runUntilFinished(host, workspace.userDataDir, "dy");
   const result = collect({ storage: workspace.userDataDir, out: join(workspace.root, "evidence"), label: "dy" });
   assert.match(result.log, /5\/5 the engine is running/);
   assert.equal(result.summary.finished, true);
