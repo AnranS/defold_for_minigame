@@ -1,0 +1,15 @@
+{
+  "name": "defold-for-minigame",
+  "description": "The Defold Mini Game exporter as a Claude Code plugin.",
+  "owner": {
+    "name": "AnranS",
+    "url": "https://github.com/AnranS"
+  },
+  "plugins": [
+    {
+      "name": "defold-minigame",
+      "source": "./",
+      "description": "Export Defold games as WeChat, Douyin, and TikTok mini games. Brings the exporter and a skill that knows how to use it and its minigame Lua SDK."
+    }
+  ]
+}

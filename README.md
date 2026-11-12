@@ -8,6 +8,7 @@
   <a href="docs/QUICK_START.md">Quick start</a> ·
   <a href="docs/USAGE.md">Usage guide</a> ·
   <a href="docs/API.md">Lua SDK</a> ·
+  <a href="docs/AI_AGENTS.md">AI agents</a> ·
   <a href="docs/ARCHITECTURE.md">Architecture</a> ·
   <a href="docs/RESEARCH_zh.md">Research and rationale (Chinese)</a> ·
   <a href="https://anrans.github.io/defold_for_minigame/en/">Website</a> ·
@@ -104,6 +105,18 @@ minigame.show_toast("Level " .. minigame.storage_get("level", "1"))
 
 **[Step-by-step tutorial →](docs/QUICK_START.md)**
 
+## Hand it to an AI coding agent
+
+The repository carries a skill ([`skills/defold-minigame/`](skills/defold-minigame/SKILL.md)), the manual an AI coding agent works from. With it installed, "export this Defold project as a WeChat mini game" is enough; the agent asks you for the App ID.
+
+```text
+/plugin install defold-minigame --marketplace AnranS/defold_for_minigame
+```
+
+That line is for Claude Code, and the exporter is installed with the plugin. For DeepSeek Harness (`dsh`) and Codex, put `skills/defold-minigame` into `~/.agents/skills/`; for other tools there is `npx skills add AnranS/defold_for_minigame`.
+
+**[Installing and using it, tool by tool →](docs/AI_AGENTS.md)**
+
 ## Platforms
 
 | Platform | Runtime API | `game.json` subpackage field | Total limit | Status |
@@ -179,6 +192,7 @@ The full compatibility notes are in the [usage guide](docs/USAGE.md).
 | Export my first game | [Quick start](docs/QUICK_START.md) |
 | Understand every option and the platform differences | [Usage guide](docs/USAGE.md) |
 | Look up an SDK function | [Lua SDK reference](docs/API.md) |
+| Let an AI coding agent export and add the SDK | [Hand it to an AI coding agent](docs/AI_AGENTS.md) |
 | Understand the exporter and the runtime | [Architecture](docs/ARCHITECTURE.md) |
 | Know why it is built this way | [Research and rationale](docs/RESEARCH_zh.md) (Chinese) |
 | Release a version or certify a Defold version | [Release process](docs/RELEASING.md) |

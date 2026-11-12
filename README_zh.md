@@ -8,6 +8,7 @@
   <a href="docs/QUICK_START_zh.md">快速开始</a> ·
   <a href="docs/USAGE_zh.md">使用指南</a> ·
   <a href="docs/API_zh.md">Lua SDK</a> ·
+  <a href="docs/AI_AGENTS_zh.md">AI 助手</a> ·
   <a href="docs/ARCHITECTURE.md">架构</a> ·
   <a href="docs/RESEARCH_zh.md">调研与设计依据</a> ·
   <a href="https://anrans.github.io/defold_for_minigame/">官网</a> ·
@@ -104,6 +105,18 @@ minigame.show_toast("Level " .. minigame.storage_get("level", "1"))
 
 **[带说明的分步教程 →](docs/QUICK_START_zh.md)**
 
+## 交给 AI 编程助手
+
+仓库里带了一个 skill（[`skills/defold-minigame/`](skills/defold-minigame/SKILL.md)），是写给 AI 编程助手的操作手册。装上以后，对助手说“把这个 Defold 工程导出成微信小游戏”就行，App ID 它会问你要。
+
+```text
+/plugin install defold-minigame --marketplace AnranS/defold_for_minigame
+```
+
+这一行是 Claude Code 的装法，导出器随插件一起装好。DeepSeek Harness（`dsh`）和 Codex 把 `skills/defold-minigame` 放进 `~/.agents/skills/` 即可，其他工具可以用 `npx skills add AnranS/defold_for_minigame`。
+
+**[各工具的装法和用法 →](docs/AI_AGENTS_zh.md)**
+
 ## 平台
 
 | 平台 | 运行时 API | `game.json` 分包字段 | 总包上限 | 状态 |
@@ -180,6 +193,7 @@ minigame.show_toast("Level " .. minigame.storage_get("level", "1"))
 | 导出第一个游戏 | [快速开始](docs/QUICK_START_zh.md) |
 | 了解每个选项和平台差异 | [使用指南](docs/USAGE_zh.md) |
 | 查找 SDK 函数 | [Lua SDK 参考](docs/API_zh.md) |
+| 让 AI 编程助手来导出和接 SDK | [交给 AI 编程助手](docs/AI_AGENTS_zh.md) |
 | 理解导出和运行时的设计 | [架构](docs/ARCHITECTURE.md) |
 | 了解为什么这样设计 | [调研与设计依据](docs/RESEARCH_zh.md) |
 | 发布新版本、认证新的 Defold 版本 | [发布流程](docs/RELEASING.md) |

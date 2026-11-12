@@ -5,19 +5,29 @@ that exact commit, then tag.
 
 ## 1. Choose and apply the version
 
-The version lives in three places that must agree; `test/support_matrix.test.mjs`
-fails when they do not.
+The version lives in five places that must agree; `test/support_matrix.test.mjs`
+and `test/skill.test.mjs` fail when they do not.
 
 | File | Field |
 |---|---|
 | `support-matrix.json` | `toolVersion` |
 | `package.json` | `version` |
 | `minigame/minigame.lua` | `M.VERSION` |
+| `.claude-plugin/plugin.json` | `version` |
+| `skills/defold-minigame/SKILL.md` | `metadata.version`, and the sentence that names the version |
 
 The install addresses in the READMEs, the quick starts, and the usage guides
 name the tag: `archive/refs/tags/v<version>.zip` for the Defold library and
 `git clone --branch v<version>` for the exporter. Change them in the commit
 that changes the version; the same test fails when one is left behind.
+
+The agent skill names the tag in the same addresses, and its reference files
+are copies of the documents: run `node scripts/generate_skill_references.mjs`
+after the documents change. Claude Code gives the plugin's users an update
+only when the version in `plugin.json` changes, so a release is what delivers
+a changed skill to them. The agent guides (`docs/AI_AGENTS*.md`) clone `main`
+and say that the skill is not in the v0.1.0 archive; from the first release
+that contains the skill, make them clone the tag and drop that sentence.
 
 Bump `bridgeAbi` in `support-matrix.json`, `BRIDGE_ABI_VERSION` in
 `runtime/common/js/platform_runtime.js`, and `M.ABI` in `minigame/minigame.lua`

@@ -31,6 +31,11 @@ export const DOCUMENTS = [
     nav: { zh: "Lua SDK", en: "Lua SDK" },
   },
   {
+    id: "agents",
+    source: { zh: "docs/AI_AGENTS_zh.md", en: "docs/AI_AGENTS.md" },
+    nav: { zh: "AI 助手", en: "AI agents" },
+  },
+  {
     id: "architecture",
     source: { zh: "docs/ARCHITECTURE.md", en: "docs/ARCHITECTURE.md" },
     nav: { zh: "架构", en: "Architecture" },

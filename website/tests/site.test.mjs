@@ -21,8 +21,8 @@ const pkg = JSON.parse(readFileSync(join(REPO_ROOT, "package.json"), "utf8"));
 const repository = repositoryUrl(pkg);
 
 const EXPECTED_ROUTES = [
-  "", "quick-start/", "guide/", "api/", "architecture/", "research/",
-  "en/", "en/quick-start/", "en/guide/", "en/api/", "en/architecture/",
+  "", "quick-start/", "guide/", "api/", "agents/", "architecture/", "research/",
+  "en/", "en/quick-start/", "en/guide/", "en/api/", "en/agents/", "en/architecture/",
 ];
 
 let outDir;

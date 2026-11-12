@@ -1,0 +1,14 @@
+{
+  "name": "defold-minigame",
+  "displayName": "Defold Mini Game",
+  "version": "0.1.0",
+  "description": "Export Defold games as WeChat, Douyin, and TikTok mini games. Brings the exporter and a skill that knows how to use it and its minigame Lua SDK.",
+  "author": {
+    "name": "AnranS",
+    "url": "https://github.com/AnranS"
+  },
+  "homepage": "https://anrans.github.io/defold_for_minigame/",
+  "repository": "https://github.com/AnranS/defold_for_minigame",
+  "license": "MIT",
+  "keywords": ["defold", "minigame", "wechat", "douyin", "tiktok"]
+}

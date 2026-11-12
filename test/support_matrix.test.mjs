@@ -29,6 +29,8 @@ const DOCUMENTS = [
   ...READMES,
   "THIRD_PARTY_NOTICES.md",
   ...readdirSync(join(REPO_ROOT, "docs")).filter((name) => name.endsWith(".md")).map((name) => `docs/${name}`),
+  // What an AI coding agent reads instead of the documents; test/skill.test.mjs covers the rest of it.
+  "skills/defold-minigame/SKILL.md",
 ];
 
 function constant(source, pattern, what) {
@@ -347,7 +349,7 @@ test("no real App ID or client key is written into the repository", () => {
   // their command line, never in a file here: not in the test app, a document,
   // a test, or evidence copied from a developer tool.
   const PLACEHOLDER = "wx0123456789abcdef";
-  const folders = ["bin", "demo", "docs", "example", "input", "minigame", "runtime", "scripts", "src", "test", "website", ".github"];
+  const folders = ["bin", "demo", "docs", "example", "input", "minigame", "runtime", "scripts", "skills", "src", "test", "website", ".github", ".claude-plugin"];
   const files = ["README.md", "README_zh.md", "THIRD_PARTY_NOTICES.md", "game.project", "package.json", "support-matrix.json", ".defignore"];
   const walk = (directory) => readdirSync(join(REPO_ROOT, directory), { withFileTypes: true }).flatMap((entry) => {
     const path = `${directory}/${entry.name}`;
