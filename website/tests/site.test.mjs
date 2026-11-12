@@ -282,6 +282,25 @@ test("the home pages show the demo game: a video that plays without sound, and w
   assert.ok(size > 100 * 1024 && size < 8 * 1024 * 1024, `the video is ${size} bytes`);
 });
 
+test("the home pages say how to install and use the skill, in the agent guide's own lines", () => {
+  const plugin = JSON.parse(readFileSync(join(REPO_ROOT, ".claude-plugin", "plugin.json"), "utf8"));
+  for (const [route, guide, lang] of [["", "agents/", "zh"], ["en/", "en/agents/", "en"]]) {
+    const agents = section(page(route).html, "agents");
+    const blocks = [...agents.matchAll(/<pre><code>([\s\S]*?)<\/code><\/pre>/g)].map((match) => match[1]);
+    assert.equal(blocks.length, home[lang].agentsInstall.length, `${route}: one install line per card`);
+    // Quoted from the guide, so the home page cannot show a line the guide does not.
+    for (const block of blocks) assert.ok(page(guide).html.includes(block), `${route}: not in the agent guide: ${block.slice(0, 60)}`);
+    assert.ok(blocks[0].startsWith(`/plugin install ${plugin.name} --marketplace `), `${route}: the Claude Code line comes first`);
+    assert.ok(blocks.some((block) => block.includes("ln -s ") && block.includes("~/.agents/skills")), `${route}: the folder dsh and Codex read`);
+    assert.ok(blocks.some((block) => block.startsWith("npx skills add ")), `${route}: the installer`);
+    assert.ok(blocks.some((block) => block.endsWith("/skills/defold-minigame/SKILL.md")), `${route}: the file to read without installing`);
+    assert.ok(agents.includes(".dsh/skills/"), `${route}: dsh's own folder`);
+    for (const line of [...home[lang].agentsPrompts, ...home[lang].agentsYours]) assert.ok(agents.includes(line.slice(0, 14)), `${route}: ${line}`);
+    assert.ok(home[lang].agentsPrompts.length >= 3 && home[lang].agentsYours.length >= 3);
+    assert.ok(agents.includes('href="agents/"'), `${route}: no link to the agent guide`);
+  }
+});
+
 test("the two languages have the same structure", () => {
   const outline = (html) => [...html.matchAll(/<section class="[^"]*" id="([^"]+)">/g)].map((match) => match[1]);
   assert.deepEqual(outline(page("").html), outline(page("en/").html));

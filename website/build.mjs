@@ -304,6 +304,40 @@ function firstCodeBlock(markdown, language) {
   return body.join("\n");
 }
 
+/** Every code block of one language in a document, in order. */
+function codeBlocks(markdown, language) {
+  const lines = markdown.split("\n");
+  const blocks = [];
+  for (let start = 0; start < lines.length; start += 1) {
+    if (lines[start].trim() !== `\`\`\`${language}`) continue;
+    const indent = lines[start].search(/\S/);
+    const body = [];
+    let index = start + 1;
+    for (; index < lines.length && lines[index].trim() !== "```"; index += 1) {
+      body.push(lines[index].slice(Math.min(indent, lines[index].search(/\S|$/))));
+    }
+    blocks.push(body.join("\n"));
+    start = index;
+  }
+  return blocks;
+}
+
+/** The lines that install the agent skill, as the agent guide shows them. */
+function agentInstall(markdown) {
+  const text = codeBlocks(markdown, "text");
+  const bash = codeBlocks(markdown, "bash");
+  const install = {
+    plugin: text.find((block) => block.startsWith("/plugin install ") && block.includes(" --marketplace ")),
+    link: bash.find((block) => block.includes("ln -s ") && block.includes(".agents/skills")),
+    installer: bash.find((block) => block.startsWith("npx skills add ")),
+    read: text.find((block) => block.endsWith("/SKILL.md")),
+  };
+  for (const [name, block] of Object.entries(install)) {
+    if (!block) throw new Error(`the agent guide no longer shows the "${name}" line; the home page quotes it`);
+  }
+  return install;
+}
+
 /** The export command and what it prints, as the quick start shows them. */
 function exportExample(markdown) {
   const command = firstCodeBlock(markdown, "bash").split("\n");
@@ -454,6 +488,7 @@ function renderHome(lang, site) {
   const quickStart = readRepoFile(DOCUMENTS.find((doc) => doc.id === "quick-start").source[lang]);
   const snippet = firstCodeBlock(quickStart, "lua");
   const example = exportExample(quickStart);
+  const install = agentInstall(readRepoFile(DOCUMENTS.find((doc) => doc.id === "agents").source[lang]));
   const chips = platforms.map(([key]) => `<li>${platformLogo(key, route)}${escapeHtml(pick(t.platformNames, key, "platform name"))}</li>`);
 
   const body = `<section class="hero">
@@ -539,6 +574,21 @@ function renderHome(lang, site) {
     <div class="grid four steps">
       ${t.workflow.map((step) => `<div class="card"><h3>${text(step.title)}</h3><p>${text(step.body)}</p></div>`).join("\n      ")}
     </div>
+  </div>
+</section>
+
+<section class="section" id="agents">
+  <div class="container">
+    ${sectionHead(t.agentsKicker, t.agentsTitle, t.agentsLead)}
+    <div class="grid">
+      ${t.agentsInstall.map((card) => `<div class="card agent-card"><h3>${text(card.title)}</h3><pre><code>${escapeHtml(pick(install, card.show, "install line"))}</code></pre><p>${text(card.note)}</p></div>`).join("\n      ")}
+    </div>
+    <h3 class="figure-title">${text(t.agentsUseTitle)}</h3>
+    <div class="grid two">
+      <div class="card agent-card"><h3>${text(t.agentsPromptsTitle)}</h3><ul>${t.agentsPrompts.map((prompt) => `<li>${text(prompt)}</li>`).join("")}</ul><p>${text(t.agentsInvoke)}</p></div>
+      <div class="card agent-card"><h3>${text(t.agentsYoursTitle)}</h3><ul>${t.agentsYours.map((item) => `<li>${text(item)}</li>`).join("")}</ul></div>
+    </div>
+    <p class="more"><a href="${link("agents")}">${text(t.agentsLink)} →</a></p>
   </div>
 </section>
 
